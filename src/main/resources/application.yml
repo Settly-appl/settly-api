@@ -1,0 +1,14 @@
+spring:
+  application:
+    name: settly-api
+  profiles:
+    active: dev
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:9090/realms/settly
+
+keycloak:
+  client-id: settly

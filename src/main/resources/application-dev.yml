@@ -1,0 +1,8 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/settly-db
+    username: settly-user
+    password: admin
+server:
+  servlet:
+    context-path: /api
