@@ -6,7 +6,10 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
+
+import pl.settly.settly_api.auth.user.filter.UserSyncFilter;
 
 @Configuration
 @EnableWebSecurity
@@ -14,9 +17,11 @@ import org.springframework.security.web.SecurityFilterChain;
 public class SecurityConfig {
 
     private final KeycloakJwtAuthenticationConverter keycloakJwtAuthenticationConverter;
+    private final UserSyncFilter userSyncFilter;
 
-    public SecurityConfig(KeycloakJwtAuthenticationConverter keycloakJwtAuthenticationConverter) {
+    public SecurityConfig(KeycloakJwtAuthenticationConverter keycloakJwtAuthenticationConverter, UserSyncFilter userSyncFilter) {
         this.keycloakJwtAuthenticationConverter = keycloakJwtAuthenticationConverter;
+        this.userSyncFilter = userSyncFilter;
     }
 
     @Bean
@@ -32,7 +37,8 @@ public class SecurityConfig {
             )
             .oauth2ResourceServer(oauth2 -> oauth2
                 .jwt(jwt -> jwt.jwtAuthenticationConverter(keycloakJwtAuthenticationConverter))
-            );
+            )
+            .addFilterAfter(userSyncFilter, BearerTokenAuthenticationFilter.class);
         return http.build();
     }
 }
