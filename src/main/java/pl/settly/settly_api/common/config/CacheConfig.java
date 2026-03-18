@@ -1,7 +1,6 @@
 package pl.settly.settly_api.common.config;
 
 import java.time.Duration;
-
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -19,13 +18,12 @@ public class CacheConfig {
     RedisCacheManager cacheManager(RedisConnectionFactory connectionFactory) {
         JacksonJsonRedisSerializer<Object> serializer = new JacksonJsonRedisSerializer<>(Object.class);
 
-        RedisCacheConfiguration config = RedisCacheConfiguration.defaultCacheConfig()
-                .entryTtl(Duration.ofHours(1))
-                .disableCachingNullValues()
-                .serializeValuesWith(SerializationPair.fromSerializer(serializer));
+        RedisCacheConfiguration config =
+                RedisCacheConfiguration.defaultCacheConfig()
+                        .entryTtl(Duration.ofHours(1))
+                        .disableCachingNullValues()
+                        .serializeValuesWith(SerializationPair.fromSerializer(serializer));
 
-        return RedisCacheManager.builder(connectionFactory)
-                .cacheDefaults(config)
-                .build();
+        return RedisCacheManager.builder(connectionFactory).cacheDefaults(config).build();
     }
 }

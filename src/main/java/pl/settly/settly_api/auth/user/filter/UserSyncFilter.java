@@ -1,17 +1,15 @@
 package pl.settly.settly_api.auth.user.filter;
 
-import java.io.IOException;
-import java.util.UUID;
-
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
-import org.springframework.stereotype.Component;
-import org.springframework.web.filter.OncePerRequestFilter;
-
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.util.UUID;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
+import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
 import pl.settly.settly_api.auth.user.dto.ProviderUserInfo;
 import pl.settly.settly_api.auth.user.mapper.KeycloakUserInfoMapper;
 import pl.settly.settly_api.auth.user.service.UserService;
@@ -28,7 +26,8 @@ public class UserSyncFilter extends OncePerRequestFilter {
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+    protected void doFilterInternal(
+            HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
         var authentication = SecurityContextHolder.getContext().getAuthentication();
 

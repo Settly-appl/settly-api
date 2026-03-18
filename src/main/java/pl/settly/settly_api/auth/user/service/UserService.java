@@ -1,11 +1,9 @@
 package pl.settly.settly_api.auth.user.service;
 
 import java.util.UUID;
-
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import pl.settly.settly_api.auth.user.dto.ProviderUserInfo;
 import pl.settly.settly_api.auth.user.model.User;
 import pl.settly.settly_api.auth.user.model.UserIdentityProvider;
@@ -18,7 +16,8 @@ public class UserService {
     private final UserRepository userRepository;
     private final UserIdentityProviderRepository identityProviderRepository;
 
-    public UserService(UserRepository userRepository, UserIdentityProviderRepository identityProviderRepository) {
+    public UserService(
+            UserRepository userRepository, UserIdentityProviderRepository identityProviderRepository) {
         this.userRepository = userRepository;
         this.identityProviderRepository = identityProviderRepository;
     }

@@ -6,5 +6,4 @@ public record ProviderUserInfo(
         String email,
         String username,
         String displayName,
-        String avatarUrl
-) {}
+        String avatarUrl) {}
