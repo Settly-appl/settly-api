@@ -43,14 +43,15 @@ public class FriendshipService {
         User requesterUser = userRepository.getReferenceById(userId);
         User receiverUser = keycloakAdminService.syncUser(requestFriendshipRequest.receiverId());
 
-        if (friendshipRepository
-                .existsByRequesterUserIdAndReceiverUserIdOrRequesterUserIdAndReceiverUserId(
-                        userId,
-                        requestFriendshipRequest.receiverId(),
-                        requestFriendshipRequest.receiverId(),
-                        userId)) {
+        if (friendshipRepository.existsActiveFriendship(
+                userId, requestFriendshipRequest.receiverId(), FriendshipStatus.DECLINED)) {
             throw new IllegalArgumentException("Friendship already exists");
         }
+
+        friendshipRepository
+                .findDeclinedBetween(
+                        userId, requestFriendshipRequest.receiverId(), FriendshipStatus.DECLINED)
+                .ifPresent(friendshipRepository::delete);
 
         Friendship friendship =
                 Friendship.builder()
