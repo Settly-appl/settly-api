@@ -1,5 +1,6 @@
 package pl.settly.settly_api.friendships.service;
 
+import java.util.List;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import pl.settly.settly_api.auth.keycloak.KeycloakAdminService;
@@ -7,6 +8,7 @@ import pl.settly.settly_api.auth.user.model.User;
 import pl.settly.settly_api.auth.user.repository.UserRepository;
 import pl.settly.settly_api.common.exception.ResourceNotFoundException;
 import pl.settly.settly_api.friendships.dto.FriendshipMapper;
+import pl.settly.settly_api.friendships.dto.PendingFriendshipRequestsResponse;
 import pl.settly.settly_api.friendships.dto.RequestFriendshipRequest;
 import pl.settly.settly_api.friendships.dto.RequestFriendshipResponse;
 import pl.settly.settly_api.friendships.model.Friendship;
@@ -75,5 +77,43 @@ public class FriendshipService {
         friendship.setStatus(status);
 
         return friendshipMapper.toFriendshipResponse(friendshipRepository.save(friendship));
+    }
+
+    public void deleteFriendship(UUID friendshipId, UUID userId) {
+        Friendship friendship =
+                friendshipRepository
+                        .findById(friendshipId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Friendship does not exist"));
+
+        if (!friendship.getRequesterUser().getId().equals(userId)
+                && !friendship.getReceiverUser().getId().equals(userId)) {
+            throw new ResourceNotFoundException("Friendship does not exist");
+        }
+
+        friendshipRepository.delete(friendship);
+    }
+
+    public List<PendingFriendshipRequestsResponse> getIncomingFriendshipsRequest(UUID userId) {
+        List<Friendship> friendships =
+                friendshipRepository.findAllByReceiverUserIdAndStatus(userId, FriendshipStatus.PENDING);
+
+        return friendships.stream()
+                .map(
+                        f ->
+                                friendshipMapper.toPendingResponse(
+                                        f, friendshipMapper.toFriendshipUserDto(f.getRequesterUser())))
+                .toList();
+    }
+
+    public List<PendingFriendshipRequestsResponse> getOutgoingFriendshipsRequest(UUID userId) {
+        List<Friendship> friendships =
+                friendshipRepository.findAllByRequesterUserIdAndStatus(userId, FriendshipStatus.PENDING);
+
+        return friendships.stream()
+                .map(
+                        f ->
+                                friendshipMapper.toPendingResponse(
+                                        f, friendshipMapper.toFriendshipUserDto(f.getReceiverUser())))
+                .toList();
     }
 }
