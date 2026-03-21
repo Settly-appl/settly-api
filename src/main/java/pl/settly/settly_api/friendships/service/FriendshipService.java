@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service;
 import pl.settly.settly_api.auth.keycloak.KeycloakAdminService;
 import pl.settly.settly_api.auth.user.model.User;
 import pl.settly.settly_api.auth.user.repository.UserRepository;
+import pl.settly.settly_api.common.exception.ResourceNotFoundException;
 import pl.settly.settly_api.friendships.dto.FriendshipMapper;
 import pl.settly.settly_api.friendships.dto.RequestFriendshipRequest;
 import pl.settly.settly_api.friendships.dto.RequestFriendshipResponse;
@@ -55,6 +56,23 @@ public class FriendshipService {
                         .receiverUser(receiverUser)
                         .status(FriendshipStatus.PENDING)
                         .build();
+
+        return friendshipMapper.toFriendshipResponse(friendshipRepository.save(friendship));
+    }
+
+    public RequestFriendshipResponse respondToFriendship(
+            UUID friendshipId, String action, UUID userId) {
+        Friendship friendship =
+                friendshipRepository
+                        .findByIdAndReceiverUserId(friendshipId, userId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Friendship request not found."));
+
+        FriendshipStatus status = FriendshipStatus.valueOf(action);
+        if (status != FriendshipStatus.ACCEPTED && status != FriendshipStatus.DECLINED) {
+            throw new IllegalArgumentException("Invalid action: " + action);
+        }
+
+        friendship.setStatus(status);
 
         return friendshipMapper.toFriendshipResponse(friendshipRepository.save(friendship));
     }
