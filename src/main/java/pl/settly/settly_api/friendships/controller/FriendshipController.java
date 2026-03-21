@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import pl.settly.settly_api.friendships.dto.FriendshipUserDto;
 import pl.settly.settly_api.friendships.dto.PendingFriendshipRequestsResponse;
 import pl.settly.settly_api.friendships.dto.RequestFriendshipRequest;
 import pl.settly.settly_api.friendships.dto.RequestFriendshipResponse;
@@ -26,6 +27,12 @@ public class FriendshipController {
 
     public FriendshipController(FriendshipService friendshipService) {
         this.friendshipService = friendshipService;
+    }
+
+    @GetMapping
+    public ResponseEntity<List<FriendshipUserDto>> getFriends(Authentication authentication) {
+        return ResponseEntity.ok(
+                friendshipService.getFriends(UUID.fromString(authentication.getName())));
     }
 
     @PostMapping("/request")

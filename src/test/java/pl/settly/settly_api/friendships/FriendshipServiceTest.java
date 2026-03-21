@@ -314,6 +314,57 @@ public class FriendshipServiceTest {
 
     // endregion
 
+    // region getFriends
+
+    @Test
+    void should_return_friends_list() {
+        User me = new User();
+        me.setId(userId);
+        User friend1 = new User();
+        friend1.setId(UUID.randomUUID());
+        User friend2 = new User();
+        friend2.setId(UUID.randomUUID());
+
+        // userId is the requester in this friendship
+        Friendship asRequester =
+                Friendship.builder()
+                        .id(UUID.randomUUID())
+                        .requesterUser(me)
+                        .receiverUser(friend1)
+                        .status(FriendshipStatus.ACCEPTED)
+                        .build();
+        // userId is the receiver in this friendship
+        Friendship asReceiver =
+                Friendship.builder()
+                        .id(UUID.randomUUID())
+                        .requesterUser(friend2)
+                        .receiverUser(me)
+                        .status(FriendshipStatus.ACCEPTED)
+                        .build();
+
+        FriendshipUserDto friend1Dto = new FriendshipUserDto("Friend1", null);
+        FriendshipUserDto friend2Dto = new FriendshipUserDto("Friend2", null);
+
+        given(friendshipRepository.findAllFriends(userId, FriendshipStatus.ACCEPTED))
+                .willReturn(List.of(asRequester, asReceiver));
+        given(friendshipMapper.toFriendshipUserDto(friend1)).willReturn(friend1Dto);
+        given(friendshipMapper.toFriendshipUserDto(friend2)).willReturn(friend2Dto);
+
+        List<FriendshipUserDto> result = friendshipService.getFriends(userId);
+
+        assertThat(result).hasSize(2).containsExactly(friend1Dto, friend2Dto);
+    }
+
+    @Test
+    void should_return_empty_list_when_no_friends() {
+        given(friendshipRepository.findAllFriends(userId, FriendshipStatus.ACCEPTED))
+                .willReturn(List.of());
+
+        assertThat(friendshipService.getFriends(userId)).isEmpty();
+    }
+
+    // endregion
+
     // region getIncomingFriendshipsRequest
 
     @Test

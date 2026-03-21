@@ -8,6 +8,7 @@ import pl.settly.settly_api.auth.user.model.User;
 import pl.settly.settly_api.auth.user.repository.UserRepository;
 import pl.settly.settly_api.common.exception.ResourceNotFoundException;
 import pl.settly.settly_api.friendships.dto.FriendshipMapper;
+import pl.settly.settly_api.friendships.dto.FriendshipUserDto;
 import pl.settly.settly_api.friendships.dto.PendingFriendshipRequestsResponse;
 import pl.settly.settly_api.friendships.dto.RequestFriendshipRequest;
 import pl.settly.settly_api.friendships.dto.RequestFriendshipResponse;
@@ -92,6 +93,19 @@ public class FriendshipService {
         }
 
         friendshipRepository.delete(friendship);
+    }
+
+    public List<FriendshipUserDto> getFriends(UUID userId) {
+        return friendshipRepository.findAllFriends(userId, FriendshipStatus.ACCEPTED).stream()
+                .map(
+                        f -> {
+                            User friend =
+                                    f.getRequesterUser().getId().equals(userId)
+                                            ? f.getReceiverUser()
+                                            : f.getRequesterUser();
+                            return friendshipMapper.toFriendshipUserDto(friend);
+                        })
+                .toList();
     }
 
     public List<PendingFriendshipRequestsResponse> getIncomingFriendshipsRequest(UUID userId) {

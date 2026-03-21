@@ -154,6 +154,27 @@ class FriendshipControllerTest {
 
     // endregion
 
+    // region getFriends
+
+    @Test
+    void should_return_200_with_friends_list() throws Exception {
+        FriendshipUserDto friend = new FriendshipUserDto("John", null);
+
+        given(friendshipService.getFriends(UUID.fromString(USER_ID))).willReturn(List.of(friend));
+
+        mockMvc
+                .perform(get("/friendships").with(user(USER_ID)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].displayName").value("John"));
+    }
+
+    @Test
+    void should_return_401_when_getting_friends_without_auth() throws Exception {
+        mockMvc.perform(get("/friendships")).andExpect(status().isUnauthorized());
+    }
+
+    // endregion
+
     // region getIncomingFriendshipRequests
 
     @Test
