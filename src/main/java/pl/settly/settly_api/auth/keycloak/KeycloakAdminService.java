@@ -9,10 +9,11 @@ import org.keycloak.admin.client.KeycloakBuilder;
 import org.keycloak.representations.idm.UserRepresentation;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import pl.settly.settly_api.auth.user.dto.ProviderUserInfo;
+import org.springframework.transaction.annotation.Transactional;
 import pl.settly.settly_api.auth.user.model.User;
+import pl.settly.settly_api.auth.user.model.UserIdentityProvider;
+import pl.settly.settly_api.auth.user.repository.UserIdentityProviderRepository;
 import pl.settly.settly_api.auth.user.repository.UserRepository;
-import pl.settly.settly_api.auth.user.service.UserService;
 import pl.settly.settly_api.common.exception.ResourceNotFoundException;
 
 @Service
@@ -20,16 +21,16 @@ public class KeycloakAdminService {
 
     private final Keycloak keycloak;
     private final String realm;
-    private final UserService userService;
     private final UserRepository userRepository;
+    private final UserIdentityProviderRepository identityProviderRepository;
 
     public KeycloakAdminService(
             @Value("${keycloak.admin.server-url}") String serverUrl,
             @Value("${keycloak.admin.realm}") String realm,
             @Value("${keycloak.admin.client-id}") String clientId,
             @Value("${keycloak.admin.client-secret}") String clientSecret,
-            UserService userService,
-            UserRepository userRepository) {
+            UserRepository userRepository,
+            UserIdentityProviderRepository identityProviderRepository) {
         this.realm = realm;
         this.keycloak =
                 KeycloakBuilder.builder()
@@ -39,8 +40,8 @@ public class KeycloakAdminService {
                         .clientId(clientId)
                         .clientSecret(clientSecret)
                         .build();
-        this.userService = userService;
         this.userRepository = userRepository;
+        this.identityProviderRepository = identityProviderRepository;
     }
 
     public Optional<UserRepresentation> findUserById(UUID id) {
@@ -52,6 +53,7 @@ public class KeycloakAdminService {
         }
     }
 
+    @Transactional
     public User syncUser(UUID id) {
         return userRepository
                 .findById(id)
@@ -60,16 +62,24 @@ public class KeycloakAdminService {
                             UserRepresentation kc =
                                     findUserById(id)
                                             .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-                            ProviderUserInfo info =
-                                    new ProviderUserInfo(
-                                            kc.getId(),
-                                            "keycloak",
-                                            kc.getEmail(),
-                                            kc.getUsername(),
-                                            kc.getFirstName() + " " + kc.getLastName(),
-                                            null);
-                            userService.ensureExists(id, info);
-                            return userRepository.getReferenceById(id);
+
+                            User user = new User();
+                            user.setId(id);
+                            user.setEmail(kc.getEmail());
+                            user.setUsername(kc.getUsername());
+                            user.setDisplayName(kc.getFirstName() + " " + kc.getLastName());
+                            user.setAvatarUrl(null);
+                            userRepository.save(user);
+
+                            UserIdentityProvider idp = new UserIdentityProvider();
+                            idp.setId(UUID.randomUUID());
+                            idp.setUser(user);
+                            idp.setEmail(kc.getEmail());
+                            idp.setProvider("keycloak");
+                            idp.setProviderId(kc.getId());
+                            identityProviderRepository.save(idp);
+
+                            return user;
                         });
     }
 }

@@ -5,21 +5,28 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pl.settly.settly_api.auth.user.dto.ProviderUserInfo;
+import pl.settly.settly_api.auth.user.dto.UserMapper;
+import pl.settly.settly_api.auth.user.dto.UserSearchResponse;
 import pl.settly.settly_api.auth.user.model.User;
 import pl.settly.settly_api.auth.user.model.UserIdentityProvider;
 import pl.settly.settly_api.auth.user.repository.UserIdentityProviderRepository;
 import pl.settly.settly_api.auth.user.repository.UserRepository;
+import pl.settly.settly_api.common.exception.ResourceNotFoundException;
 
 @Service
 public class UserService {
 
     private final UserRepository userRepository;
     private final UserIdentityProviderRepository identityProviderRepository;
+    private final UserMapper userMapper;
 
     public UserService(
-            UserRepository userRepository, UserIdentityProviderRepository identityProviderRepository) {
+            UserRepository userRepository,
+            UserIdentityProviderRepository identityProviderRepository,
+            UserMapper userMapper) {
         this.userRepository = userRepository;
         this.identityProviderRepository = identityProviderRepository;
+        this.userMapper = userMapper;
     }
 
     @Cacheable(value = "knownUsers", key = "#sub.toString()")
@@ -43,5 +50,12 @@ public class UserService {
             identityProviderRepository.save(idp);
         }
         return true;
+    }
+
+    public UserSearchResponse searchByEmail(String email) {
+        return userRepository
+                .findByEmail(email)
+                .map(userMapper::toUserSearchResponse)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
     }
 }
