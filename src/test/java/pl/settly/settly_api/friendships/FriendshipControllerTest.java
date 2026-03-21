@@ -4,7 +4,10 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.verify;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -12,6 +15,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import jakarta.servlet.FilterChain;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -27,6 +31,8 @@ import pl.settly.settly_api.auth.user.filter.UserSyncFilter;
 import pl.settly.settly_api.auth.user.mapper.KeycloakUserInfoMapper;
 import pl.settly.settly_api.auth.user.service.UserService;
 import pl.settly.settly_api.friendships.controller.FriendshipController;
+import pl.settly.settly_api.friendships.dto.FriendshipUserDto;
+import pl.settly.settly_api.friendships.dto.PendingFriendshipRequestsResponse;
 import pl.settly.settly_api.friendships.dto.RequestFriendshipResponse;
 import pl.settly.settly_api.friendships.model.FriendshipStatus;
 import pl.settly.settly_api.friendships.service.FriendshipService;
@@ -58,6 +64,8 @@ class FriendshipControllerTest {
                 .doFilter(any(), any(), any());
     }
 
+    // region requestFriendship
+
     @Test
     void should_return_200_when_friendship_requested() throws Exception {
         RequestFriendshipResponse response =
@@ -85,6 +93,10 @@ class FriendshipControllerTest {
                                 .content("{\"receiverId\":\"" + RECEIVER_ID + "\"}"))
                 .andExpect(status().isUnauthorized());
     }
+
+    // endregion
+
+    // region respondToFriendship
 
     @Test
     void should_return_200_when_responding_to_friendship() throws Exception {
@@ -115,4 +127,82 @@ class FriendshipControllerTest {
                         patch("/friendships/{friendshipId}/respond", friendshipId).param("action", "ACCEPTED"))
                 .andExpect(status().isUnauthorized());
     }
+
+    // endregion
+
+    // region deleteFriendship
+
+    @Test
+    void should_return_204_when_friendship_deleted() throws Exception {
+        UUID friendshipId = UUID.randomUUID();
+
+        mockMvc
+                .perform(delete("/friendships/{friendshipId}", friendshipId).with(user(USER_ID)))
+                .andExpect(status().isNoContent());
+
+        verify(friendshipService).deleteFriendship(friendshipId, UUID.fromString(USER_ID));
+    }
+
+    @Test
+    void should_return_401_when_deleting_without_auth() throws Exception {
+        UUID friendshipId = UUID.randomUUID();
+
+        mockMvc
+                .perform(delete("/friendships/{friendshipId}", friendshipId))
+                .andExpect(status().isUnauthorized());
+    }
+
+    // endregion
+
+    // region getIncomingFriendshipRequests
+
+    @Test
+    void should_return_200_with_incoming_requests() throws Exception {
+        UUID friendshipId = UUID.randomUUID();
+        FriendshipUserDto userDto = new FriendshipUserDto("John", null);
+        PendingFriendshipRequestsResponse response =
+                new PendingFriendshipRequestsResponse(friendshipId, userDto, Instant.now());
+
+        given(friendshipService.getIncomingFriendshipsRequest(UUID.fromString(USER_ID)))
+                .willReturn(List.of(response));
+
+        mockMvc
+                .perform(get("/friendships/incoming").with(user(USER_ID)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].friendshipId").value(friendshipId.toString()))
+                .andExpect(jsonPath("$[0].user.displayName").value("John"));
+    }
+
+    @Test
+    void should_return_401_when_getting_incoming_without_auth() throws Exception {
+        mockMvc.perform(get("/friendships/incoming")).andExpect(status().isUnauthorized());
+    }
+
+    // endregion
+
+    // region getOutgoingFriendshipRequests
+
+    @Test
+    void should_return_200_with_outgoing_requests() throws Exception {
+        UUID friendshipId = UUID.randomUUID();
+        FriendshipUserDto userDto = new FriendshipUserDto("Jane", null);
+        PendingFriendshipRequestsResponse response =
+                new PendingFriendshipRequestsResponse(friendshipId, userDto, Instant.now());
+
+        given(friendshipService.getOutgoingFriendshipsRequest(UUID.fromString(USER_ID)))
+                .willReturn(List.of(response));
+
+        mockMvc
+                .perform(get("/friendships/outgoing").with(user(USER_ID)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].friendshipId").value(friendshipId.toString()))
+                .andExpect(jsonPath("$[0].user.displayName").value("Jane"));
+    }
+
+    @Test
+    void should_return_401_when_getting_outgoing_without_auth() throws Exception {
+        mockMvc.perform(get("/friendships/outgoing")).andExpect(status().isUnauthorized());
+    }
+
+    // endregion
 }
