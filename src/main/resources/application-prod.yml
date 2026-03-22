@@ -3,3 +3,7 @@ spring:
     url: jdbc:postgresql://localhost:5432/settly-db
     username: settly-user
     password: ${SETTLY_DB_PASSWORD}
+
+keycloak:
+  admin:
+    client-secret: ${KEYCLOAK_ADMIN_CLIENT_SECRET}
