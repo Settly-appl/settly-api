@@ -17,3 +17,7 @@ spring:
 
 keycloak:
   client-id: settly
+  admin:
+    server-url: http://localhost:9090
+    realm: settly
+    client-id: settly-api-admin

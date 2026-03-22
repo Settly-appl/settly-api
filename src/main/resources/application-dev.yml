@@ -6,3 +6,7 @@ spring:
 server:
   servlet:
     context-path: /api
+
+keycloak:
+  admin:
+    client-secret: dev-secret
