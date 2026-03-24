@@ -27,9 +27,8 @@ import pl.settly.settly_api.auth.user.repository.UserRepository;
 import pl.settly.settly_api.common.exception.ResourceNotFoundException;
 import pl.settly.settly_api.common.search.PagedResponse;
 import pl.settly.settly_api.expenses.dto.ExpenseMapper;
-import pl.settly.settly_api.expenses.dto.CreateRequestExpense;
+import pl.settly.settly_api.expenses.dto.CreateExpenseRequest;
 import pl.settly.settly_api.expenses.dto.ExpenseResponse;
-import pl.settly.settly_api.expenses.dto.SearchExpenseRequest;
 import pl.settly.settly_api.expenses.model.Expense;
 import pl.settly.settly_api.expenses.repository.ExpenseRepository;
 import pl.settly.settly_api.expenses.service.ExpenseService;
@@ -51,7 +50,7 @@ class ExpensesServiceTest {
 
     @Test
     void should_create_expense_successfully() {
-        CreateRequestExpense request = new CreateRequestExpense(
+        CreateExpenseRequest request = new CreateExpenseRequest(
                 "Test Shop",
                 "Test Note",
                 BigDecimal.valueOf(100.00),
@@ -87,7 +86,7 @@ class ExpensesServiceTest {
 
     @Test
     void should_throw_when_user_not_found_on_create() {
-        CreateRequestExpense request = new CreateRequestExpense(
+        CreateExpenseRequest request = new CreateExpenseRequest(
                 "Test Shop",
                 "Test Note",
                 BigDecimal.valueOf(100.00),
@@ -144,7 +143,7 @@ class ExpensesServiceTest {
 
     @Test
     void should_update_expense_successfully() {
-        CreateRequestExpense request = new CreateRequestExpense(
+        CreateExpenseRequest request = new CreateExpenseRequest(
                 "Updated Shop",
                 "Updated Note",
                 BigDecimal.valueOf(150.00),
@@ -182,7 +181,7 @@ class ExpensesServiceTest {
 
     @Test
     void should_throw_when_expense_not_found_on_update() {
-        CreateRequestExpense request = new CreateRequestExpense(
+        CreateExpenseRequest request = new CreateExpenseRequest(
                 "Updated Shop",
                 "Updated Note",
                 BigDecimal.valueOf(150.00),
@@ -226,7 +225,6 @@ class ExpensesServiceTest {
     // region searchExpenses
     @Test
     void should_return_paged_expenses_when_searching() {
-        SearchExpenseRequest searchRequest = new SearchExpenseRequest(0, 10, "createdAt", "desc");
         Pageable pageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "createdAt"));
         Expense expense = new Expense();
         ExpenseResponse expectedResponse = new ExpenseResponse(
@@ -245,7 +243,7 @@ class ExpensesServiceTest {
         given(expenseRepository.findByUser_Id(userId, pageable)).willReturn(page);
         given(expenseMapper.toExpenseResponse(expense)).willReturn(expectedResponse);
 
-        PagedResponse<ExpenseResponse> response = expenseService.searchExpenses(searchRequest, userId);
+        PagedResponse<ExpenseResponse> response = expenseService.searchExpenses(0, 10, "createdAt", "desc", userId);
 
         assertThat(response.result()).containsExactly(expectedResponse);
         assertThat(response.pageNumber()).isEqualTo(0);

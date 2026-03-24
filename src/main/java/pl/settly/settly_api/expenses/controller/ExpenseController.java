@@ -12,11 +12,11 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import pl.settly.settly_api.common.search.PagedResponse;
-import pl.settly.settly_api.expenses.dto.CreateRequestExpense;
+import pl.settly.settly_api.expenses.dto.CreateExpenseRequest;
 import pl.settly.settly_api.expenses.dto.ExpenseResponse;
-import pl.settly.settly_api.expenses.dto.SearchExpenseRequest;
 import pl.settly.settly_api.expenses.service.ExpenseService;
 
 @RestController
@@ -30,7 +30,7 @@ public class ExpenseController {
 
     @PostMapping
     public ResponseEntity<ExpenseResponse> createExpense(
-            @Valid @RequestBody CreateRequestExpense requestExpense, Authentication authentication) {
+            @Valid @RequestBody CreateExpenseRequest requestExpense, Authentication authentication) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(
                         expenseService.createExpense(
@@ -44,17 +44,26 @@ public class ExpenseController {
                 expenseService.getExpense(expenseId, UUID.fromString(authentication.getName())));
     }
 
-    @GetMapping("/commands/search")
+    @GetMapping
     public ResponseEntity<PagedResponse<ExpenseResponse>> getAllExpenses(
-            @Valid @RequestBody SearchExpenseRequest searchRequest, Authentication authentication) {
+            @RequestParam(defaultValue = "0") int pageNumber,
+            @RequestParam(defaultValue = "10") int pageSize,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "asc") String sortDirection,
+            Authentication authentication) {
         return ResponseEntity.ok(
-                expenseService.searchExpenses(searchRequest, UUID.fromString(authentication.getName())));
+                expenseService.searchExpenses(
+                        pageNumber,
+                        pageSize,
+                        sortBy,
+                        sortDirection,
+                        UUID.fromString(authentication.getName())));
     }
 
     @PutMapping("/{expenseId}")
     public ResponseEntity<ExpenseResponse> updateExpense(
             @PathVariable UUID expenseId,
-            @Valid @RequestBody CreateRequestExpense request,
+            @Valid @RequestBody CreateExpenseRequest request,
             Authentication authentication) {
         return ResponseEntity.ok(
                 expenseService.updateExpense(

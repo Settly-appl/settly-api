@@ -12,7 +12,7 @@ public interface ExpenseMapper {
     @Mapping(target = "project", ignore = true)
     @Mapping(target = "isScanned", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
-    Expense toExpense(CreateRequestExpense request);
+    Expense toExpense(CreateExpenseRequest request);
 
     @Mapping(source = "user.id", target = "userId")
     @Mapping(source = "project.id", target = "projectId")

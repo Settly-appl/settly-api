@@ -11,10 +11,9 @@ import pl.settly.settly_api.auth.user.model.User;
 import pl.settly.settly_api.auth.user.repository.UserRepository;
 import pl.settly.settly_api.common.exception.ResourceNotFoundException;
 import pl.settly.settly_api.common.search.PagedResponse;
-import pl.settly.settly_api.expenses.dto.CreateRequestExpense;
+import pl.settly.settly_api.expenses.dto.CreateExpenseRequest;
 import pl.settly.settly_api.expenses.dto.ExpenseMapper;
 import pl.settly.settly_api.expenses.dto.ExpenseResponse;
-import pl.settly.settly_api.expenses.dto.SearchExpenseRequest;
 import pl.settly.settly_api.expenses.model.Expense;
 import pl.settly.settly_api.expenses.repository.ExpenseRepository;
 
@@ -34,7 +33,7 @@ public class ExpenseService {
         this.userRepository = userRepository;
     }
 
-    public ExpenseResponse createExpense(CreateRequestExpense request, UUID userId) {
+    public ExpenseResponse createExpense(CreateExpenseRequest request, UUID userId) {
         Expense expense = expenseMapper.toExpense(request);
         User user = userRepository.getReferenceById(userId);
         expense.setUser(user);
@@ -50,15 +49,15 @@ public class ExpenseService {
     }
 
     public PagedResponse<ExpenseResponse> searchExpenses(
-            SearchExpenseRequest searchRequest, UUID userId) {
-        Pageable pageable = createPageable(searchRequest);
+            int pageNumber, int pageSize, String sortBy, String sortDirection, UUID userId) {
+        Pageable pageable = createPageable(pageNumber, pageSize, sortBy, sortDirection);
         Page<Expense> expensesPage = expenseRepository.findByUser_Id(userId, pageable);
         List<ExpenseResponse> responses =
                 expensesPage.getContent().stream().map(expenseMapper::toExpenseResponse).toList();
         return new PagedResponse<>(responses, expensesPage.getNumber(), expensesPage.getTotalPages());
     }
 
-    public ExpenseResponse updateExpense(UUID expenseId, UUID userId, CreateRequestExpense request) {
+    public ExpenseResponse updateExpense(UUID expenseId, UUID userId, CreateExpenseRequest request) {
         Expense expense =
                 expenseRepository
                         .findByIdAndUser_Id(expenseId, userId)
@@ -79,16 +78,11 @@ public class ExpenseService {
         expenseRepository.delete(expense);
     }
 
-    private Pageable createPageable(SearchExpenseRequest searchRequest) {
-        Sort.Direction sortDirection =
-                searchRequest.sortDirection().equalsIgnoreCase("asc")
-                        ? Sort.Direction.ASC
-                        : Sort.Direction.DESC;
-        String sortBy =
-                (searchRequest.sortBy() != null && !searchRequest.sortBy().isEmpty())
-                        ? searchRequest.sortBy()
-                        : "createdAt";
-        return PageRequest.of(
-                searchRequest.pageNumber(), searchRequest.pageSize(), Sort.by(sortDirection, sortBy));
+    private Pageable createPageable(
+            int pageNumber, int pageSize, String sortBy, String sortDirection) {
+        Sort.Direction direction =
+                sortDirection.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC;
+        String sort = (sortBy != null && !sortBy.isEmpty()) ? sortBy : "createdAt";
+        return PageRequest.of(pageNumber, pageSize, Sort.by(direction, sort));
     }
 }

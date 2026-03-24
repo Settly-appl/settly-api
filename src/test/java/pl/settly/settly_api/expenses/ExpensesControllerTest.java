@@ -34,9 +34,8 @@ import pl.settly.settly_api.auth.user.mapper.KeycloakUserInfoMapper;
 import pl.settly.settly_api.auth.user.service.UserService;
 import pl.settly.settly_api.common.search.PagedResponse;
 import pl.settly.settly_api.expenses.controller.ExpenseController;
-import pl.settly.settly_api.expenses.dto.CreateRequestExpense;
+import pl.settly.settly_api.expenses.dto.CreateExpenseRequest;
 import pl.settly.settly_api.expenses.dto.ExpenseResponse;
-import pl.settly.settly_api.expenses.dto.SearchExpenseRequest;
 import pl.settly.settly_api.expenses.service.ExpenseService;
 
 @WebMvcTest(ExpenseController.class)
@@ -98,7 +97,7 @@ class ExpensesControllerTest {
 
     @Test
     void should_return_201_when_expense_created() throws Exception {
-        given(expenseService.createExpense(any(CreateRequestExpense.class), eq(UUID.fromString(USER_ID))))
+        given(expenseService.createExpense(any(CreateExpenseRequest.class), eq(UUID.fromString(USER_ID))))
                 .willReturn(responseExpense);
 
         mockMvc
@@ -126,7 +125,7 @@ class ExpensesControllerTest {
                 .andExpect(jsonPath("$.totalAmount").value(100.00))
                 .andExpect(jsonPath("$.isScanned").value(false));
 
-        verify(expenseService).createExpense(any(CreateRequestExpense.class), eq(UUID.fromString(USER_ID)));
+        verify(expenseService).createExpense(any(CreateExpenseRequest.class), eq(UUID.fromString(USER_ID)));
     }
 
     @Test
@@ -184,7 +183,7 @@ class ExpensesControllerTest {
 
     @Test
     void should_return_200_when_expense_updated() throws Exception {
-        given(expenseService.updateExpense(eq(UUID.fromString(EXPENSE_ID)), eq(UUID.fromString(USER_ID)), any(CreateRequestExpense.class)))
+        given(expenseService.updateExpense(eq(UUID.fromString(EXPENSE_ID)), eq(UUID.fromString(USER_ID)), any(CreateExpenseRequest.class)))
                 .willReturn(updatedExpense);
 
         mockMvc
@@ -212,7 +211,7 @@ class ExpensesControllerTest {
                 .andExpect(jsonPath("$.totalAmount").value(150.00))
                 .andExpect(jsonPath("$.isScanned").value(false));
 
-        verify(expenseService).updateExpense(eq(UUID.fromString(EXPENSE_ID)), eq(UUID.fromString(USER_ID)), any(CreateRequestExpense.class));
+        verify(expenseService).updateExpense(eq(UUID.fromString(EXPENSE_ID)), eq(UUID.fromString(USER_ID)), any(CreateExpenseRequest.class));
     }
 
     @Test
@@ -257,31 +256,27 @@ class ExpensesControllerTest {
 
     @Test
     void should_return_200_when_searching_expenses() throws Exception {
-        // prepare
-        SearchExpenseRequest searchRequest = new SearchExpenseRequest(0, 10, null, null);
-        PagedResponse<ExpenseResponse> pagedResponse = new PagedResponse<>(List.of(responseExpense), 0, 1);
-        given(expenseService.searchExpenses(searchRequest, UUID.fromString(USER_ID))).willReturn(pagedResponse);
+        // Arrange
+        var pagedResponse = new PagedResponse<>(List.of(responseExpense), 0, 1);
 
-        mockMvc
-                .perform(post("/expenses/commands/search")
-                                .with(user(USER_ID))
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(
-                                        """
-                                {
-                                    "pageNumber": 0,
-                                    "pageSize": 10,
-                                    "sortBy": null,
-                                    "sortDirection": null
-                                }
-                                """))
+        // Using any() for optional params can make tests less brittle to minor controller changes
+        given(expenseService.searchExpenses(eq(0), eq(10), any(), any(), eq(UUID.fromString(USER_ID))))
+                .willReturn(pagedResponse);
+
+        // Act & Assert
+        mockMvc.perform(get("/expenses")
+                        .param("pageNumber", "0")
+                        .param("pageSize", "10")
+                        .with(user(USER_ID)))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.result").isArray())
                 .andExpect(jsonPath("$.result[0].id").value(EXPENSE_ID))
                 .andExpect(jsonPath("$.pageNumber").value(0))
                 .andExpect(jsonPath("$.numberOfPages").value(1));
 
-        verify(expenseService).searchExpenses(any(SearchExpenseRequest.class), eq(UUID.fromString(USER_ID)));
+        // Optional: Verify the service was actually hit
+        verify(expenseService).searchExpenses(0, 10, "createdAt", "asc", UUID.fromString(USER_ID));
     }
-
+        
     // endregion
 }
