@@ -13,15 +13,15 @@ import pl.settly.settly_api.auth.user.service.UserService;
 @RestController
 @RequestMapping("/users")
 public class UserController {
-    private final UserService userService;
+  private final UserService userService;
 
-    public UserController(UserService userService) {
-        this.userService = userService;
-    }
+  public UserController(UserService userService) {
+    this.userService = userService;
+  }
 
-    @GetMapping("/search")
-    public ResponseEntity<UserSearchResponse> searchByEmail(
-            @RequestParam @NotBlank @Email String email) {
-        return ResponseEntity.ok(userService.searchByEmail(email));
-    }
+  @GetMapping("/search")
+  public ResponseEntity<UserSearchResponse> searchByEmail(
+      @RequestParam @NotBlank @Email String email) {
+    return ResponseEntity.ok(userService.searchByEmail(email));
+  }
 }

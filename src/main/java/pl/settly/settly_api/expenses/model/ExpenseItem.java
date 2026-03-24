@@ -21,22 +21,22 @@ import org.hibernate.annotations.UuidGenerator;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ExpenseItem {
-    @Id @UuidGenerator private UUID id;
+  @Id @UuidGenerator private UUID id;
 
-    @ManyToOne
-    @JoinColumn(name = "expense_id", nullable = true)
-    private Expense expense;
+  @ManyToOne
+  @JoinColumn(name = "expense_id", nullable = true)
+  private Expense expense;
 
-    @Column(name = "name", length = 255, nullable = false)
-    private String name;
+  @Column(name = "name", length = 255, nullable = false)
+  private String name;
 
-    @Column(name = "price", precision = 10, scale = 2, nullable = false)
-    private BigDecimal price;
+  @Column(name = "price", precision = 10, scale = 2, nullable = false)
+  private BigDecimal price;
 
-    @Builder.Default
-    @Column(name = "quantity", precision = 10, scale = 3, nullable = false)
-    private BigDecimal quantity = BigDecimal.ONE;
+  @Builder.Default
+  @Column(name = "quantity", precision = 10, scale = 3, nullable = false)
+  private BigDecimal quantity = BigDecimal.ONE;
 
-    @Column(name = "category", length = 50, nullable = true)
-    private String category;
+  @Column(name = "category", length = 50, nullable = true)
+  private String category;
 }

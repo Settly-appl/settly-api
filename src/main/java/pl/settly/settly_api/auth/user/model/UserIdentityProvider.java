@@ -19,22 +19,22 @@ import org.hibernate.annotations.CreationTimestamp;
 @Setter
 public class UserIdentityProvider {
 
-    @Id private UUID id;
+  @Id private UUID id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "user_id", nullable = false)
+  private User user;
 
-    @Column(nullable = false)
-    private String email;
+  @Column(nullable = false)
+  private String email;
 
-    @Column(nullable = false, length = 20)
-    private String provider;
+  @Column(nullable = false, length = 20)
+  private String provider;
 
-    @Column(name = "provider_id", nullable = false)
-    private String providerId;
+  @Column(name = "provider_id", nullable = false)
+  private String providerId;
 
-    @CreationTimestamp
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private Instant createdAt;
+  @CreationTimestamp
+  @Column(name = "created_at", nullable = false, updatable = false)
+  private Instant createdAt;
 }

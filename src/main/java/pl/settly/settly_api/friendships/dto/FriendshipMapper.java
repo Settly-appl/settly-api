@@ -7,13 +7,13 @@ import pl.settly.settly_api.friendships.model.Friendship;
 
 @Mapper(componentModel = "spring")
 public interface FriendshipMapper {
-    RequestFriendshipResponse toFriendshipResponse(Friendship friendship);
+  RequestFriendshipResponse toFriendshipResponse(Friendship friendship);
 
-    @Mapping(source = "friendship.id", target = "friendshipId")
-    @Mapping(source = "user", target = "user")
-    @Mapping(source = "friendship.createdAt", target = "createdAt")
-    PendingFriendshipRequestsResponse toPendingResponse(
-            Friendship friendship, FriendshipUserDto user);
+  @Mapping(source = "friendship.id", target = "friendshipId")
+  @Mapping(source = "user", target = "user")
+  @Mapping(source = "friendship.createdAt", target = "createdAt")
+  PendingFriendshipRequestsResponse toPendingResponse(
+      Friendship friendship, FriendshipUserDto user);
 
-    FriendshipUserDto toFriendshipUserDto(User user);
+  FriendshipUserDto toFriendshipUserDto(User user);
 }

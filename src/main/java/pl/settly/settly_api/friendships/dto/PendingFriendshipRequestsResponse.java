@@ -4,4 +4,4 @@ import java.time.Instant;
 import java.util.UUID;
 
 public record PendingFriendshipRequestsResponse(
-        UUID friendshipId, FriendshipUserDto user, Instant createdAt) {}
+    UUID friendshipId, FriendshipUserDto user, Instant createdAt) {}

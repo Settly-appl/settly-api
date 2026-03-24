@@ -15,29 +15,29 @@ import pl.settly.settly_api.auth.user.filter.UserSyncFilter;
 @EnableMethodSecurity
 public class SecurityConfig {
 
-    private final KeycloakJwtAuthenticationConverter keycloakJwtAuthenticationConverter;
-    private final UserSyncFilter userSyncFilter;
+  private final KeycloakJwtAuthenticationConverter keycloakJwtAuthenticationConverter;
+  private final UserSyncFilter userSyncFilter;
 
-    public SecurityConfig(
-            KeycloakJwtAuthenticationConverter keycloakJwtAuthenticationConverter,
-            UserSyncFilter userSyncFilter) {
-        this.keycloakJwtAuthenticationConverter = keycloakJwtAuthenticationConverter;
-        this.userSyncFilter = userSyncFilter;
-    }
+  public SecurityConfig(
+      KeycloakJwtAuthenticationConverter keycloakJwtAuthenticationConverter,
+      UserSyncFilter userSyncFilter) {
+    this.keycloakJwtAuthenticationConverter = keycloakJwtAuthenticationConverter;
+    this.userSyncFilter = userSyncFilter;
+  }
 
-    @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http.csrf(csrf -> csrf.disable())
-                .sessionManagement(
-                        session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(
-                        auth -> auth.requestMatchers("/public/**").permitAll().anyRequest().authenticated())
-                .oauth2ResourceServer(
-                        oauth2 ->
-                                oauth2.jwt(
-                                        jwt -> jwt.jwtAuthenticationConverter(keycloakJwtAuthenticationConverter)))
-                .addFilterAfter(userSyncFilter, BearerTokenAuthenticationFilter.class);
+  @Bean
+  SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    http.csrf(csrf -> csrf.disable())
+        .sessionManagement(
+            session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+        .authorizeHttpRequests(
+            auth -> auth.requestMatchers("/public/**").permitAll().anyRequest().authenticated())
+        .oauth2ResourceServer(
+            oauth2 ->
+                oauth2.jwt(
+                    jwt -> jwt.jwtAuthenticationConverter(keycloakJwtAuthenticationConverter)))
+        .addFilterAfter(userSyncFilter, BearerTokenAuthenticationFilter.class);
 
-        return http.build();
-    }
+    return http.build();
+  }
 }

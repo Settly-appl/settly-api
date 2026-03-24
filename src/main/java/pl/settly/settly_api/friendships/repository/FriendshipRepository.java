@@ -10,33 +10,33 @@ import pl.settly.settly_api.friendships.model.Friendship;
 import pl.settly.settly_api.friendships.model.FriendshipStatus;
 
 public interface FriendshipRepository extends JpaRepository<Friendship, UUID> {
-    Optional<Friendship> findByIdAndReceiverUserId(UUID id, UUID receiverId);
+  Optional<Friendship> findByIdAndReceiverUserId(UUID id, UUID receiverId);
 
-    List<Friendship> findAllByReceiverUserIdAndStatus(UUID receiverId, FriendshipStatus status);
+  List<Friendship> findAllByReceiverUserIdAndStatus(UUID receiverId, FriendshipStatus status);
 
-    List<Friendship> findAllByRequesterUserIdAndStatus(UUID requesterId, FriendshipStatus status);
+  List<Friendship> findAllByRequesterUserIdAndStatus(UUID requesterId, FriendshipStatus status);
 
-    @Query(
-            "SELECT COUNT(f) > 0 FROM Friendship f WHERE f.status != :declined AND "
-                    + "(f.requesterUser.id = :userId AND f.receiverUser.id = :receiverId OR "
-                    + "f.requesterUser.id = :receiverId AND f.receiverUser.id = :userId)")
-    boolean existsActiveFriendship(
-            @Param("userId") UUID userId,
-            @Param("receiverId") UUID receiverId,
-            @Param("declined") FriendshipStatus declined);
+  @Query(
+      "SELECT COUNT(f) > 0 FROM Friendship f WHERE f.status != :declined AND "
+          + "(f.requesterUser.id = :userId AND f.receiverUser.id = :receiverId OR "
+          + "f.requesterUser.id = :receiverId AND f.receiverUser.id = :userId)")
+  boolean existsActiveFriendship(
+      @Param("userId") UUID userId,
+      @Param("receiverId") UUID receiverId,
+      @Param("declined") FriendshipStatus declined);
 
-    @Query(
-            "SELECT f FROM Friendship f WHERE f.status = :declined AND "
-                    + "(f.requesterUser.id = :userId AND f.receiverUser.id = :receiverId OR "
-                    + "f.requesterUser.id = :receiverId AND f.receiverUser.id = :userId)")
-    Optional<Friendship> findDeclinedBetween(
-            @Param("userId") UUID userId,
-            @Param("receiverId") UUID receiverId,
-            @Param("declined") FriendshipStatus declined);
+  @Query(
+      "SELECT f FROM Friendship f WHERE f.status = :declined AND "
+          + "(f.requesterUser.id = :userId AND f.receiverUser.id = :receiverId OR "
+          + "f.requesterUser.id = :receiverId AND f.receiverUser.id = :userId)")
+  Optional<Friendship> findDeclinedBetween(
+      @Param("userId") UUID userId,
+      @Param("receiverId") UUID receiverId,
+      @Param("declined") FriendshipStatus declined);
 
-    @Query(
-            "SELECT f FROM Friendship f WHERE f.status = :accepted AND "
-                    + "(f.requesterUser.id = :userId OR f.receiverUser.id = :userId)")
-    List<Friendship> findAllFriends(
-            @Param("userId") UUID userId, @Param("accepted") FriendshipStatus accepted);
+  @Query(
+      "SELECT f FROM Friendship f WHERE f.status = :accepted AND "
+          + "(f.requesterUser.id = :userId OR f.receiverUser.id = :userId)")
+  List<Friendship> findAllFriends(
+      @Param("userId") UUID userId, @Param("accepted") FriendshipStatus accepted);
 }

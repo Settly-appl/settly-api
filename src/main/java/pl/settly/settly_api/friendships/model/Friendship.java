@@ -26,25 +26,25 @@ import pl.settly.settly_api.auth.user.model.User;
 @NoArgsConstructor
 @AllArgsConstructor
 public class Friendship {
-    @Id @UuidGenerator private UUID id;
+  @Id @UuidGenerator private UUID id;
 
-    @ManyToOne
-    @JoinColumn(name = "requester_id", nullable = false)
-    private User requesterUser;
+  @ManyToOne
+  @JoinColumn(name = "requester_id", nullable = false)
+  private User requesterUser;
 
-    @ManyToOne
-    @JoinColumn(name = "receiver_id", nullable = false)
-    private User receiverUser;
+  @ManyToOne
+  @JoinColumn(name = "receiver_id", nullable = false)
+  private User receiverUser;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "status")
-    private FriendshipStatus status;
+  @Enumerated(EnumType.STRING)
+  @Column(name = "status")
+  private FriendshipStatus status;
 
-    @Column(name = "created_at")
-    @CreationTimestamp
-    private Instant createdAt;
+  @Column(name = "created_at")
+  @CreationTimestamp
+  private Instant createdAt;
 
-    @Column(name = "updated_at")
-    @UpdateTimestamp
-    private Instant updatedAt;
+  @Column(name = "updated_at")
+  @UpdateTimestamp
+  private Instant updatedAt;
 }

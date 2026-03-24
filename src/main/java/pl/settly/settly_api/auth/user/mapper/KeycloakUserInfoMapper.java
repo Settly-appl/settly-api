@@ -7,13 +7,13 @@ import pl.settly.settly_api.auth.user.dto.ProviderUserInfo;
 @Component
 public class KeycloakUserInfoMapper {
 
-    public ProviderUserInfo map(Jwt jwt) {
-        return new ProviderUserInfo(
-                jwt.getSubject(),
-                "keycloak",
-                jwt.getClaimAsString("email"),
-                jwt.getClaimAsString("preferred_username"),
-                jwt.getClaimAsString("name"),
-                jwt.getClaimAsString("picture"));
-    }
+  public ProviderUserInfo map(Jwt jwt) {
+    return new ProviderUserInfo(
+        jwt.getSubject(),
+        "keycloak",
+        jwt.getClaimAsString("email"),
+        jwt.getClaimAsString("preferred_username"),
+        jwt.getClaimAsString("name"),
+        jwt.getClaimAsString("picture"));
+  }
 }
