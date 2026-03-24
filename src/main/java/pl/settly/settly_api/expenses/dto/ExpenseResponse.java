@@ -5,10 +5,10 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
 
-public record RequestExpenseResponse(
+public record ExpenseResponse(
         UUID id,
-        UUID userId,
-        UUID projectId,
+        UUID user,
+        UUID project,
         String shop,
         String note,
         BigDecimal totalAmount,

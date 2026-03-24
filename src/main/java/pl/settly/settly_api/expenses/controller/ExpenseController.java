@@ -13,8 +13,10 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import pl.settly.settly_api.expenses.dto.RequestExpense;
-import pl.settly.settly_api.expenses.dto.RequestExpenseResponse;
+import pl.settly.settly_api.common.search.PagedResponse;
+import pl.settly.settly_api.expenses.dto.CreateRequestExpense;
+import pl.settly.settly_api.expenses.dto.ExpenseResponse;
+import pl.settly.settly_api.expenses.dto.SearchExpenseRequest;
 import pl.settly.settly_api.expenses.service.ExpenseService;
 
 @RestController
@@ -26,29 +28,43 @@ public class ExpenseController {
         this.expenseService = expenseService;
     }
 
-    @PostMapping("/create")
-    public ResponseEntity<RequestExpenseResponse> createExpense(
-            @Valid @RequestBody RequestExpense requestExpense, Authentication authentication) {
+    @PostMapping
+    public ResponseEntity<ExpenseResponse> createExpense(
+            @Valid @RequestBody CreateRequestExpense requestExpense, Authentication authentication) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(
                         expenseService.createExpense(
                                 requestExpense, UUID.fromString(authentication.getName())));
     }
 
-    @GetMapping("/get/{expenseId}")
-    public ResponseEntity<RequestExpenseResponse> getExpenseById(@PathVariable UUID expenseId) {
-        return ResponseEntity.ok(expenseService.getExpense(expenseId));
+    @GetMapping("/{expenseId}")
+    public ResponseEntity<ExpenseResponse> getExpenseById(
+            @PathVariable UUID expenseId, Authentication authentication) {
+        return ResponseEntity.ok(
+                expenseService.getExpense(expenseId, UUID.fromString(authentication.getName())));
     }
 
-    @PutMapping("/update/{expenseId}")
-    public ResponseEntity<RequestExpenseResponse> updateExpense(
-            @PathVariable UUID expenseId, @Valid @RequestBody RequestExpense request) {
-        return ResponseEntity.ok(expenseService.updateExpense(expenseId, request));
+    @PostMapping("/commands/search")
+    public ResponseEntity<PagedResponse<ExpenseResponse>> getAllExpenses(
+            @Valid @RequestBody SearchExpenseRequest searchRequest, Authentication authentication) {
+        return ResponseEntity.ok(
+                expenseService.searchExpenses(UUID.fromString(authentication.getName()), searchRequest));
     }
 
-    @DeleteMapping("/delete/{expenseId}")
-    public ResponseEntity<Void> deleteExpense(@PathVariable UUID expenseId) {
-        expenseService.deleteExpense(expenseId);
+    @PutMapping("/{expenseId}")
+    public ResponseEntity<ExpenseResponse> updateExpense(
+            @PathVariable UUID expenseId,
+            @Valid @RequestBody CreateRequestExpense request,
+            Authentication authentication) {
+        return ResponseEntity.ok(
+                expenseService.updateExpense(
+                        expenseId, UUID.fromString(authentication.getName()), request));
+    }
+
+    @DeleteMapping("/{expenseId}")
+    public ResponseEntity<Void> deleteExpense(
+            @PathVariable UUID expenseId, Authentication authentication) {
+        expenseService.deleteExpense(expenseId, UUID.fromString(authentication.getName()));
         return ResponseEntity.noContent().build();
     }
 }

@@ -30,11 +30,11 @@ public class Expense {
 
     @ManyToOne
     @JoinColumn(name = "user_id", nullable = true)
-    private User userId;
+    private User user;
 
     @ManyToOne
     @JoinColumn(name = "project_id", nullable = true)
-    private Project projectId;
+    private Project project;
 
     @Column(name = "shop", length = 255, nullable = true)
     private String shop;

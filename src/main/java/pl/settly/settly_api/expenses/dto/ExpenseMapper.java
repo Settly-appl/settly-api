@@ -8,14 +8,14 @@ import pl.settly.settly_api.expenses.model.Expense;
 public interface ExpenseMapper {
 
     @Mapping(target = "id", ignore = true)
-    @Mapping(target = "userId", ignore = true)
-    @Mapping(target = "projectId", ignore = true)
+    @Mapping(target = "user", ignore = true)
+    @Mapping(target = "project", ignore = true)
     @Mapping(target = "isScanned", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
-    Expense toExpense(RequestExpense request);
+    Expense toExpense(CreateRequestExpense request);
 
-    @Mapping(source = "userId.id", target = "userId")
-    @Mapping(source = "projectId.id", target = "projectId")
+    @Mapping(source = "user.id", target = "user")
+    @Mapping(source = "project.id", target = "project")
     @Mapping(source = "date", target = "date")
-    RequestExpenseResponse toExpenseResponse(Expense expense);
+    ExpenseResponse toExpenseResponse(Expense expense);
 }
