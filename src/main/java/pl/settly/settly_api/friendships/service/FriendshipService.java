@@ -19,116 +19,116 @@ import pl.settly.settly_api.friendships.repository.FriendshipRepository;
 @Service
 public class FriendshipService {
 
-    private final FriendshipRepository friendshipRepository;
-    private final UserRepository userRepository;
-    private final FriendshipMapper friendshipMapper;
-    private final KeycloakAdminService keycloakAdminService;
+  private final FriendshipRepository friendshipRepository;
+  private final UserRepository userRepository;
+  private final FriendshipMapper friendshipMapper;
+  private final KeycloakAdminService keycloakAdminService;
 
-    public FriendshipService(
-            FriendshipRepository friendshipRepository,
-            UserRepository userRepository,
-            FriendshipMapper friendshipMapper,
-            KeycloakAdminService keycloakAdminService) {
-        this.friendshipRepository = friendshipRepository;
-        this.userRepository = userRepository;
-        this.friendshipMapper = friendshipMapper;
-        this.keycloakAdminService = keycloakAdminService;
+  public FriendshipService(
+      FriendshipRepository friendshipRepository,
+      UserRepository userRepository,
+      FriendshipMapper friendshipMapper,
+      KeycloakAdminService keycloakAdminService) {
+    this.friendshipRepository = friendshipRepository;
+    this.userRepository = userRepository;
+    this.friendshipMapper = friendshipMapper;
+    this.keycloakAdminService = keycloakAdminService;
+  }
+
+  public RequestFriendshipResponse requestFriendship(
+      RequestFriendshipRequest requestFriendshipRequest, UUID userId) {
+    if (requestFriendshipRequest.receiverId().equals(userId)) {
+      throw new IllegalArgumentException("User cannot invite himself");
     }
 
-    public RequestFriendshipResponse requestFriendship(
-            RequestFriendshipRequest requestFriendshipRequest, UUID userId) {
-        if (requestFriendshipRequest.receiverId().equals(userId)) {
-            throw new IllegalArgumentException("User cannot invite himself");
-        }
+    User requesterUser = userRepository.getReferenceById(userId);
+    User receiverUser = keycloakAdminService.syncUser(requestFriendshipRequest.receiverId());
 
-        User requesterUser = userRepository.getReferenceById(userId);
-        User receiverUser = keycloakAdminService.syncUser(requestFriendshipRequest.receiverId());
+    if (friendshipRepository.existsActiveFriendship(
+        userId, requestFriendshipRequest.receiverId(), FriendshipStatus.DECLINED)) {
+      throw new IllegalArgumentException("Friendship already exists");
+    }
 
-        if (friendshipRepository.existsActiveFriendship(
-                userId, requestFriendshipRequest.receiverId(), FriendshipStatus.DECLINED)) {
-            throw new IllegalArgumentException("Friendship already exists");
-        }
+    friendshipRepository
+        .findDeclinedBetween(
+            userId, requestFriendshipRequest.receiverId(), FriendshipStatus.DECLINED)
+        .ifPresent(friendshipRepository::delete);
 
+    Friendship friendship =
+        Friendship.builder()
+            .requesterUser(requesterUser)
+            .receiverUser(receiverUser)
+            .status(FriendshipStatus.PENDING)
+            .build();
+
+    return friendshipMapper.toFriendshipResponse(friendshipRepository.save(friendship));
+  }
+
+  public RequestFriendshipResponse respondToFriendship(
+      UUID friendshipId, String action, UUID userId) {
+    Friendship friendship =
         friendshipRepository
-                .findDeclinedBetween(
-                        userId, requestFriendshipRequest.receiverId(), FriendshipStatus.DECLINED)
-                .ifPresent(friendshipRepository::delete);
+            .findByIdAndReceiverUserId(friendshipId, userId)
+            .orElseThrow(() -> new ResourceNotFoundException("Friendship request not found."));
 
-        Friendship friendship =
-                Friendship.builder()
-                        .requesterUser(requesterUser)
-                        .receiverUser(receiverUser)
-                        .status(FriendshipStatus.PENDING)
-                        .build();
-
-        return friendshipMapper.toFriendshipResponse(friendshipRepository.save(friendship));
+    FriendshipStatus status = FriendshipStatus.valueOf(action);
+    if (status != FriendshipStatus.ACCEPTED && status != FriendshipStatus.DECLINED) {
+      throw new IllegalArgumentException("Invalid action: " + action);
     }
 
-    public RequestFriendshipResponse respondToFriendship(
-            UUID friendshipId, String action, UUID userId) {
-        Friendship friendship =
-                friendshipRepository
-                        .findByIdAndReceiverUserId(friendshipId, userId)
-                        .orElseThrow(() -> new ResourceNotFoundException("Friendship request not found."));
+    friendship.setStatus(status);
 
-        FriendshipStatus status = FriendshipStatus.valueOf(action);
-        if (status != FriendshipStatus.ACCEPTED && status != FriendshipStatus.DECLINED) {
-            throw new IllegalArgumentException("Invalid action: " + action);
-        }
+    return friendshipMapper.toFriendshipResponse(friendshipRepository.save(friendship));
+  }
 
-        friendship.setStatus(status);
+  public void deleteFriendship(UUID friendshipId, UUID userId) {
+    Friendship friendship =
+        friendshipRepository
+            .findById(friendshipId)
+            .orElseThrow(() -> new ResourceNotFoundException("Friendship does not exist"));
 
-        return friendshipMapper.toFriendshipResponse(friendshipRepository.save(friendship));
+    if (!friendship.getRequesterUser().getId().equals(userId)
+        && !friendship.getReceiverUser().getId().equals(userId)) {
+      throw new ResourceNotFoundException("Friendship does not exist");
     }
 
-    public void deleteFriendship(UUID friendshipId, UUID userId) {
-        Friendship friendship =
-                friendshipRepository
-                        .findById(friendshipId)
-                        .orElseThrow(() -> new ResourceNotFoundException("Friendship does not exist"));
+    friendshipRepository.delete(friendship);
+  }
 
-        if (!friendship.getRequesterUser().getId().equals(userId)
-                && !friendship.getReceiverUser().getId().equals(userId)) {
-            throw new ResourceNotFoundException("Friendship does not exist");
-        }
+  public List<FriendshipUserDto> getFriends(UUID userId) {
+    return friendshipRepository.findAllFriends(userId, FriendshipStatus.ACCEPTED).stream()
+        .map(
+            f -> {
+              User friend =
+                  f.getRequesterUser().getId().equals(userId)
+                      ? f.getReceiverUser()
+                      : f.getRequesterUser();
+              return friendshipMapper.toFriendshipUserDto(friend);
+            })
+        .toList();
+  }
 
-        friendshipRepository.delete(friendship);
-    }
+  public List<PendingFriendshipRequestsResponse> getIncomingFriendshipsRequest(UUID userId) {
+    List<Friendship> friendships =
+        friendshipRepository.findAllByReceiverUserIdAndStatus(userId, FriendshipStatus.PENDING);
 
-    public List<FriendshipUserDto> getFriends(UUID userId) {
-        return friendshipRepository.findAllFriends(userId, FriendshipStatus.ACCEPTED).stream()
-                .map(
-                        f -> {
-                            User friend =
-                                    f.getRequesterUser().getId().equals(userId)
-                                            ? f.getReceiverUser()
-                                            : f.getRequesterUser();
-                            return friendshipMapper.toFriendshipUserDto(friend);
-                        })
-                .toList();
-    }
+    return friendships.stream()
+        .map(
+            f ->
+                friendshipMapper.toPendingResponse(
+                    f, friendshipMapper.toFriendshipUserDto(f.getRequesterUser())))
+        .toList();
+  }
 
-    public List<PendingFriendshipRequestsResponse> getIncomingFriendshipsRequest(UUID userId) {
-        List<Friendship> friendships =
-                friendshipRepository.findAllByReceiverUserIdAndStatus(userId, FriendshipStatus.PENDING);
+  public List<PendingFriendshipRequestsResponse> getOutgoingFriendshipsRequest(UUID userId) {
+    List<Friendship> friendships =
+        friendshipRepository.findAllByRequesterUserIdAndStatus(userId, FriendshipStatus.PENDING);
 
-        return friendships.stream()
-                .map(
-                        f ->
-                                friendshipMapper.toPendingResponse(
-                                        f, friendshipMapper.toFriendshipUserDto(f.getRequesterUser())))
-                .toList();
-    }
-
-    public List<PendingFriendshipRequestsResponse> getOutgoingFriendshipsRequest(UUID userId) {
-        List<Friendship> friendships =
-                friendshipRepository.findAllByRequesterUserIdAndStatus(userId, FriendshipStatus.PENDING);
-
-        return friendships.stream()
-                .map(
-                        f ->
-                                friendshipMapper.toPendingResponse(
-                                        f, friendshipMapper.toFriendshipUserDto(f.getReceiverUser())))
-                .toList();
-    }
+    return friendships.stream()
+        .map(
+            f ->
+                friendshipMapper.toPendingResponse(
+                    f, friendshipMapper.toFriendshipUserDto(f.getReceiverUser())))
+        .toList();
+  }
 }

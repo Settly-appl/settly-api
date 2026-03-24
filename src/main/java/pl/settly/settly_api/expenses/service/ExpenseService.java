@@ -20,69 +20,69 @@ import pl.settly.settly_api.expenses.repository.ExpenseRepository;
 @Service
 public class ExpenseService {
 
-    private final ExpenseRepository expenseRepository;
-    private final ExpenseMapper expenseMapper;
-    private final UserRepository userRepository;
+  private final ExpenseRepository expenseRepository;
+  private final ExpenseMapper expenseMapper;
+  private final UserRepository userRepository;
 
-    public ExpenseService(
-            ExpenseRepository expenseRepository,
-            ExpenseMapper expenseMapper,
-            UserRepository userRepository) {
-        this.expenseRepository = expenseRepository;
-        this.expenseMapper = expenseMapper;
-        this.userRepository = userRepository;
-    }
+  public ExpenseService(
+      ExpenseRepository expenseRepository,
+      ExpenseMapper expenseMapper,
+      UserRepository userRepository) {
+    this.expenseRepository = expenseRepository;
+    this.expenseMapper = expenseMapper;
+    this.userRepository = userRepository;
+  }
 
-    public ExpenseResponse createExpense(CreateExpenseRequest request, UUID userId) {
-        Expense expense = expenseMapper.toExpense(request);
-        User user = userRepository.getReferenceById(userId);
-        expense.setUser(user);
-        Expense savedExpense = expenseRepository.save(expense);
-        return expenseMapper.toExpenseResponse(savedExpense);
-    }
+  public ExpenseResponse createExpense(CreateExpenseRequest request, UUID userId) {
+    Expense expense = expenseMapper.toExpense(request);
+    User user = userRepository.getReferenceById(userId);
+    expense.setUser(user);
+    Expense savedExpense = expenseRepository.save(expense);
+    return expenseMapper.toExpenseResponse(savedExpense);
+  }
 
-    public ExpenseResponse getExpense(UUID expenseId, UUID userId) {
-        return expenseRepository
-                .findByIdAndUser_Id(expenseId, userId)
-                .map(expenseMapper::toExpenseResponse)
-                .orElseThrow(() -> new ResourceNotFoundException("Expense does not exist"));
-    }
+  public ExpenseResponse getExpense(UUID expenseId, UUID userId) {
+    return expenseRepository
+        .findByIdAndUser_Id(expenseId, userId)
+        .map(expenseMapper::toExpenseResponse)
+        .orElseThrow(() -> new ResourceNotFoundException("Expense does not exist"));
+  }
 
-    public PagedResponse<ExpenseResponse> searchExpenses(
-            int pageNumber, int pageSize, String sortBy, String sortDirection, UUID userId) {
-        Pageable pageable = createPageable(pageNumber, pageSize, sortBy, sortDirection);
-        Page<Expense> expensesPage = expenseRepository.findByUser_Id(userId, pageable);
-        List<ExpenseResponse> responses =
-                expensesPage.getContent().stream().map(expenseMapper::toExpenseResponse).toList();
-        return new PagedResponse<>(responses, expensesPage.getNumber(), expensesPage.getTotalPages());
-    }
+  public PagedResponse<ExpenseResponse> searchExpenses(
+      int pageNumber, int pageSize, String sortBy, String sortDirection, UUID userId) {
+    Pageable pageable = createPageable(pageNumber, pageSize, sortBy, sortDirection);
+    Page<Expense> expensesPage = expenseRepository.findByUser_Id(userId, pageable);
+    List<ExpenseResponse> responses =
+        expensesPage.getContent().stream().map(expenseMapper::toExpenseResponse).toList();
+    return new PagedResponse<>(responses, expensesPage.getNumber(), expensesPage.getTotalPages());
+  }
 
-    public ExpenseResponse updateExpense(UUID expenseId, UUID userId, CreateExpenseRequest request) {
-        Expense expense =
-                expenseRepository
-                        .findByIdAndUser_Id(expenseId, userId)
-                        .orElseThrow(() -> new ResourceNotFoundException("Expense does not exist"));
-        expense.setShop(request.shop());
-        expense.setNote(request.note());
-        expense.setTotalAmount(request.totalAmount());
-        expense.setDate(request.date());
+  public ExpenseResponse updateExpense(UUID expenseId, UUID userId, CreateExpenseRequest request) {
+    Expense expense =
+        expenseRepository
+            .findByIdAndUser_Id(expenseId, userId)
+            .orElseThrow(() -> new ResourceNotFoundException("Expense does not exist"));
+    expense.setShop(request.shop());
+    expense.setNote(request.note());
+    expense.setTotalAmount(request.totalAmount());
+    expense.setDate(request.date());
 
-        return expenseMapper.toExpenseResponse(expenseRepository.save(expense));
-    }
+    return expenseMapper.toExpenseResponse(expenseRepository.save(expense));
+  }
 
-    public void deleteExpense(UUID expenseId, UUID userId) {
-        Expense expense =
-                expenseRepository
-                        .findByIdAndUser_Id(expenseId, userId)
-                        .orElseThrow(() -> new ResourceNotFoundException("Expense does not exist"));
-        expenseRepository.delete(expense);
-    }
+  public void deleteExpense(UUID expenseId, UUID userId) {
+    Expense expense =
+        expenseRepository
+            .findByIdAndUser_Id(expenseId, userId)
+            .orElseThrow(() -> new ResourceNotFoundException("Expense does not exist"));
+    expenseRepository.delete(expense);
+  }
 
-    private Pageable createPageable(
-            int pageNumber, int pageSize, String sortBy, String sortDirection) {
-        Sort.Direction direction =
-                sortDirection.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC;
-        String sort = (sortBy != null && !sortBy.isEmpty()) ? sortBy : "createdAt";
-        return PageRequest.of(pageNumber, pageSize, Sort.by(direction, sort));
-    }
+  private Pageable createPageable(
+      int pageNumber, int pageSize, String sortBy, String sortDirection) {
+    Sort.Direction direction =
+        sortDirection.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC;
+    String sort = (sortBy != null && !sortBy.isEmpty()) ? sortBy : "createdAt";
+    return PageRequest.of(pageNumber, pageSize, Sort.by(direction, sort));
+  }
 }

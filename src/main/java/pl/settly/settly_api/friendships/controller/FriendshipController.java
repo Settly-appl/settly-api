@@ -23,55 +23,55 @@ import pl.settly.settly_api.friendships.service.FriendshipService;
 @RestController
 @RequestMapping("/friendships")
 public class FriendshipController {
-    private final FriendshipService friendshipService;
+  private final FriendshipService friendshipService;
 
-    public FriendshipController(FriendshipService friendshipService) {
-        this.friendshipService = friendshipService;
-    }
+  public FriendshipController(FriendshipService friendshipService) {
+    this.friendshipService = friendshipService;
+  }
 
-    @GetMapping
-    public ResponseEntity<List<FriendshipUserDto>> getFriends(Authentication authentication) {
-        return ResponseEntity.ok(
-                friendshipService.getFriends(UUID.fromString(authentication.getName())));
-    }
+  @GetMapping
+  public ResponseEntity<List<FriendshipUserDto>> getFriends(Authentication authentication) {
+    return ResponseEntity.ok(
+        friendshipService.getFriends(UUID.fromString(authentication.getName())));
+  }
 
-    @PostMapping("/request")
-    public ResponseEntity<RequestFriendshipResponse> requestFriendship(
-            @Valid @RequestBody RequestFriendshipRequest requestFriendshipRequest,
-            Authentication authentication) {
-        return ResponseEntity.ok(
-                friendshipService.requestFriendship(
-                        requestFriendshipRequest, UUID.fromString(authentication.getName())));
-    }
+  @PostMapping("/request")
+  public ResponseEntity<RequestFriendshipResponse> requestFriendship(
+      @Valid @RequestBody RequestFriendshipRequest requestFriendshipRequest,
+      Authentication authentication) {
+    return ResponseEntity.ok(
+        friendshipService.requestFriendship(
+            requestFriendshipRequest, UUID.fromString(authentication.getName())));
+  }
 
-    @PatchMapping("/{friendshipId}/respond")
-    public ResponseEntity<RequestFriendshipResponse> respondToFriendship(
-            @PathVariable UUID friendshipId, @RequestParam String action, Authentication authentication) {
-        return ResponseEntity.ok(
-                friendshipService.respondToFriendship(
-                        friendshipId, action, UUID.fromString(authentication.getName())));
-    }
+  @PatchMapping("/{friendshipId}/respond")
+  public ResponseEntity<RequestFriendshipResponse> respondToFriendship(
+      @PathVariable UUID friendshipId, @RequestParam String action, Authentication authentication) {
+    return ResponseEntity.ok(
+        friendshipService.respondToFriendship(
+            friendshipId, action, UUID.fromString(authentication.getName())));
+  }
 
-    @DeleteMapping("/{friendshipId}")
-    public ResponseEntity<Void> removeFriendshipRequest(
-            @PathVariable UUID friendshipId, Authentication authentication) {
+  @DeleteMapping("/{friendshipId}")
+  public ResponseEntity<Void> removeFriendshipRequest(
+      @PathVariable UUID friendshipId, Authentication authentication) {
 
-        friendshipService.deleteFriendship(friendshipId, UUID.fromString(authentication.getName()));
+    friendshipService.deleteFriendship(friendshipId, UUID.fromString(authentication.getName()));
 
-        return ResponseEntity.noContent().build();
-    }
+    return ResponseEntity.noContent().build();
+  }
 
-    @GetMapping("/incoming")
-    public ResponseEntity<List<PendingFriendshipRequestsResponse>> getIncomingFriendshipRequests(
-            Authentication authentication) {
-        return ResponseEntity.ok(
-                friendshipService.getIncomingFriendshipsRequest(UUID.fromString(authentication.getName())));
-    }
+  @GetMapping("/incoming")
+  public ResponseEntity<List<PendingFriendshipRequestsResponse>> getIncomingFriendshipRequests(
+      Authentication authentication) {
+    return ResponseEntity.ok(
+        friendshipService.getIncomingFriendshipsRequest(UUID.fromString(authentication.getName())));
+  }
 
-    @GetMapping("/outgoing")
-    public ResponseEntity<List<PendingFriendshipRequestsResponse>> getOutgoingFriendshipRequests(
-            Authentication authentication) {
-        return ResponseEntity.ok(
-                friendshipService.getOutgoingFriendshipsRequest(UUID.fromString(authentication.getName())));
-    }
+  @GetMapping("/outgoing")
+  public ResponseEntity<List<PendingFriendshipRequestsResponse>> getOutgoingFriendshipRequests(
+      Authentication authentication) {
+    return ResponseEntity.ok(
+        friendshipService.getOutgoingFriendshipsRequest(UUID.fromString(authentication.getName())));
+  }
 }

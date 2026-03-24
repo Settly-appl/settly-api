@@ -6,12 +6,12 @@ import java.time.LocalDate;
 import java.util.UUID;
 
 public record ExpenseResponse(
-        UUID id,
-        UUID userId,
-        UUID projectId,
-        String shop,
-        String note,
-        BigDecimal totalAmount,
-        Boolean isScanned,
-        LocalDate date,
-        Instant createdAt) {}
+    UUID id,
+    UUID userId,
+    UUID projectId,
+    String shop,
+    String note,
+    BigDecimal totalAmount,
+    Boolean isScanned,
+    LocalDate date,
+    Instant createdAt) {}

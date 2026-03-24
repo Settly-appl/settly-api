@@ -17,26 +17,26 @@ import pl.settly.settly_api.auth.user.service.UserService;
 @Component
 public class UserSyncFilter extends OncePerRequestFilter {
 
-    private final UserService userService;
-    private final KeycloakUserInfoMapper keycloakUserInfoMapper;
+  private final UserService userService;
+  private final KeycloakUserInfoMapper keycloakUserInfoMapper;
 
-    public UserSyncFilter(UserService userService, KeycloakUserInfoMapper keycloakUserInfoMapper) {
-        this.userService = userService;
-        this.keycloakUserInfoMapper = keycloakUserInfoMapper;
+  public UserSyncFilter(UserService userService, KeycloakUserInfoMapper keycloakUserInfoMapper) {
+    this.userService = userService;
+    this.keycloakUserInfoMapper = keycloakUserInfoMapper;
+  }
+
+  @Override
+  protected void doFilterInternal(
+      HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+      throws ServletException, IOException {
+    var authentication = SecurityContextHolder.getContext().getAuthentication();
+
+    if (authentication instanceof JwtAuthenticationToken jwtAuth) {
+      var jwt = jwtAuth.getToken();
+      ProviderUserInfo info = keycloakUserInfoMapper.map(jwt);
+      userService.ensureExists(UUID.fromString(jwt.getSubject()), info);
     }
 
-    @Override
-    protected void doFilterInternal(
-            HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
-            throws ServletException, IOException {
-        var authentication = SecurityContextHolder.getContext().getAuthentication();
-
-        if (authentication instanceof JwtAuthenticationToken jwtAuth) {
-            var jwt = jwtAuth.getToken();
-            ProviderUserInfo info = keycloakUserInfoMapper.map(jwt);
-            userService.ensureExists(UUID.fromString(jwt.getSubject()), info);
-        }
-
-        filterChain.doFilter(request, response);
-    }
+    filterChain.doFilter(request, response);
+  }
 }

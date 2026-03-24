@@ -16,24 +16,24 @@ import org.hibernate.annotations.CreationTimestamp;
 @Setter
 public class User {
 
-    @Id private UUID id;
+  @Id private UUID id;
 
-    @Column(nullable = false, unique = true)
-    private String email;
+  @Column(nullable = false, unique = true)
+  private String email;
 
-    @Column(nullable = false, unique = true)
-    private String username;
+  @Column(nullable = false, unique = true)
+  private String username;
 
-    @Column(name = "display_name")
-    private String displayName;
+  @Column(name = "display_name")
+  private String displayName;
 
-    @Column(name = "avatar_url")
-    private String avatarUrl;
+  @Column(name = "avatar_url")
+  private String avatarUrl;
 
-    @Column(name = "last_login")
-    private Instant lastLogin;
+  @Column(name = "last_login")
+  private Instant lastLogin;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
-    @CreationTimestamp
-    private Instant createdAt;
+  @Column(name = "created_at", nullable = false, updatable = false)
+  @CreationTimestamp
+  private Instant createdAt;
 }

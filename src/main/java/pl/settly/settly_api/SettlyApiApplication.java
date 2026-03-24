@@ -6,7 +6,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 @SpringBootApplication
 public class SettlyApiApplication {
 
-    public static void main(String[] args) {
-        SpringApplication.run(SettlyApiApplication.class, args);
-    }
+  public static void main(String[] args) {
+    SpringApplication.run(SettlyApiApplication.class, args);
+  }
 }

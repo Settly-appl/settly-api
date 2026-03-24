@@ -22,58 +22,58 @@ import pl.settly.settly_api.expenses.service.ExpenseService;
 @RestController
 @RequestMapping("/expenses")
 public class ExpenseController {
-    private final ExpenseService expenseService;
+  private final ExpenseService expenseService;
 
-    public ExpenseController(ExpenseService expenseService) {
-        this.expenseService = expenseService;
-    }
+  public ExpenseController(ExpenseService expenseService) {
+    this.expenseService = expenseService;
+  }
 
-    @PostMapping
-    public ResponseEntity<ExpenseResponse> createExpense(
-            @Valid @RequestBody CreateExpenseRequest requestExpense, Authentication authentication) {
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(
-                        expenseService.createExpense(
-                                requestExpense, UUID.fromString(authentication.getName())));
-    }
+  @PostMapping
+  public ResponseEntity<ExpenseResponse> createExpense(
+      @Valid @RequestBody CreateExpenseRequest requestExpense, Authentication authentication) {
+    return ResponseEntity.status(HttpStatus.CREATED)
+        .body(
+            expenseService.createExpense(
+                requestExpense, UUID.fromString(authentication.getName())));
+  }
 
-    @GetMapping("/{expenseId}")
-    public ResponseEntity<ExpenseResponse> getExpenseById(
-            @PathVariable UUID expenseId, Authentication authentication) {
-        return ResponseEntity.ok(
-                expenseService.getExpense(expenseId, UUID.fromString(authentication.getName())));
-    }
+  @GetMapping("/{expenseId}")
+  public ResponseEntity<ExpenseResponse> getExpenseById(
+      @PathVariable UUID expenseId, Authentication authentication) {
+    return ResponseEntity.ok(
+        expenseService.getExpense(expenseId, UUID.fromString(authentication.getName())));
+  }
 
-    @GetMapping
-    public ResponseEntity<PagedResponse<ExpenseResponse>> getAllExpenses(
-            @RequestParam(defaultValue = "0") int pageNumber,
-            @RequestParam(defaultValue = "10") int pageSize,
-            @RequestParam(defaultValue = "createdAt") String sortBy,
-            @RequestParam(defaultValue = "asc") String sortDirection,
-            Authentication authentication) {
-        return ResponseEntity.ok(
-                expenseService.searchExpenses(
-                        pageNumber,
-                        pageSize,
-                        sortBy,
-                        sortDirection,
-                        UUID.fromString(authentication.getName())));
-    }
+  @GetMapping
+  public ResponseEntity<PagedResponse<ExpenseResponse>> getAllExpenses(
+      @RequestParam(defaultValue = "0") int pageNumber,
+      @RequestParam(defaultValue = "10") int pageSize,
+      @RequestParam(defaultValue = "createdAt") String sortBy,
+      @RequestParam(defaultValue = "asc") String sortDirection,
+      Authentication authentication) {
+    return ResponseEntity.ok(
+        expenseService.searchExpenses(
+            pageNumber,
+            pageSize,
+            sortBy,
+            sortDirection,
+            UUID.fromString(authentication.getName())));
+  }
 
-    @PutMapping("/{expenseId}")
-    public ResponseEntity<ExpenseResponse> updateExpense(
-            @PathVariable UUID expenseId,
-            @Valid @RequestBody CreateExpenseRequest request,
-            Authentication authentication) {
-        return ResponseEntity.ok(
-                expenseService.updateExpense(
-                        expenseId, UUID.fromString(authentication.getName()), request));
-    }
+  @PutMapping("/{expenseId}")
+  public ResponseEntity<ExpenseResponse> updateExpense(
+      @PathVariable UUID expenseId,
+      @Valid @RequestBody CreateExpenseRequest request,
+      Authentication authentication) {
+    return ResponseEntity.ok(
+        expenseService.updateExpense(
+            expenseId, UUID.fromString(authentication.getName()), request));
+  }
 
-    @DeleteMapping("/{expenseId}")
-    public ResponseEntity<Void> deleteExpense(
-            @PathVariable UUID expenseId, Authentication authentication) {
-        expenseService.deleteExpense(expenseId, UUID.fromString(authentication.getName()));
-        return ResponseEntity.noContent().build();
-    }
+  @DeleteMapping("/{expenseId}")
+  public ResponseEntity<Void> deleteExpense(
+      @PathVariable UUID expenseId, Authentication authentication) {
+    expenseService.deleteExpense(expenseId, UUID.fromString(authentication.getName()));
+    return ResponseEntity.noContent().build();
+  }
 }

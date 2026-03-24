@@ -15,33 +15,33 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class KeycloakJwtAuthenticationConverter
-        implements Converter<Jwt, AbstractAuthenticationToken> {
+    implements Converter<Jwt, AbstractAuthenticationToken> {
 
-    private final String clientId;
+  private final String clientId;
 
-    public KeycloakJwtAuthenticationConverter(@Value("${keycloak.client-id}") String clientId) {
-        this.clientId = clientId;
-    }
+  public KeycloakJwtAuthenticationConverter(@Value("${keycloak.client-id}") String clientId) {
+    this.clientId = clientId;
+  }
 
-    @Override
-    public AbstractAuthenticationToken convert(Jwt jwt) {
-        Collection<GrantedAuthority> authorities = extractClientRoles(jwt);
-        return new JwtAuthenticationToken(jwt, authorities);
-    }
+  @Override
+  public AbstractAuthenticationToken convert(Jwt jwt) {
+    Collection<GrantedAuthority> authorities = extractClientRoles(jwt);
+    return new JwtAuthenticationToken(jwt, authorities);
+  }
 
-    @SuppressWarnings("unchecked")
-    private Collection<GrantedAuthority> extractClientRoles(Jwt jwt) {
-        Map<String, Object> resourceAccess = jwt.getClaim("resource_access");
-        if (resourceAccess == null) return List.of();
+  @SuppressWarnings("unchecked")
+  private Collection<GrantedAuthority> extractClientRoles(Jwt jwt) {
+    Map<String, Object> resourceAccess = jwt.getClaim("resource_access");
+    if (resourceAccess == null) return List.of();
 
-        Map<String, Object> clientAccess = (Map<String, Object>) resourceAccess.get(clientId);
-        if (clientAccess == null) return List.of();
+    Map<String, Object> clientAccess = (Map<String, Object>) resourceAccess.get(clientId);
+    if (clientAccess == null) return List.of();
 
-        List<String> roles = (List<String>) clientAccess.get("roles");
-        if (roles == null) return List.of();
+    List<String> roles = (List<String>) clientAccess.get("roles");
+    if (roles == null) return List.of();
 
-        return roles.stream()
-                .map(role -> new SimpleGrantedAuthority("ROLE_" + role))
-                .collect(Collectors.toList());
-    }
+    return roles.stream()
+        .map(role -> new SimpleGrantedAuthority("ROLE_" + role))
+        .collect(Collectors.toList());
+  }
 }

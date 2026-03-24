@@ -26,28 +26,28 @@ import pl.settly.settly_api.auth.user.model.User;
 @NoArgsConstructor
 @AllArgsConstructor
 public class Project {
-    @Id @UuidGenerator private UUID id;
+  @Id @UuidGenerator private UUID id;
 
-    @ManyToOne
-    @JoinColumn(name = "owner_id", nullable = true)
-    private User projectOwner;
+  @ManyToOne
+  @JoinColumn(name = "owner_id", nullable = true)
+  private User projectOwner;
 
-    @Column(name = "name", nullable = false)
-    private String name;
+  @Column(name = "name", nullable = false)
+  private String name;
 
-    @Column(name = "description", nullable = true)
-    private String description;
+  @Column(name = "description", nullable = true)
+  private String description;
 
-    @Builder.Default
-    @Enumerated(EnumType.STRING)
-    @Column(name = "status")
-    private ProjectStatus status = ProjectStatus.ACTIVE;
+  @Builder.Default
+  @Enumerated(EnumType.STRING)
+  @Column(name = "status")
+  private ProjectStatus status = ProjectStatus.ACTIVE;
 
-    @Column(name = "created_at")
-    @CreationTimestamp
-    private Instant createdAt;
+  @Column(name = "created_at")
+  @CreationTimestamp
+  private Instant createdAt;
 
-    @Column(name = "updated_at")
-    @UpdateTimestamp
-    private Instant updatedAt;
+  @Column(name = "updated_at")
+  @UpdateTimestamp
+  private Instant updatedAt;
 }
