@@ -48,7 +48,7 @@ public class ExpenseController {
     public ResponseEntity<PagedResponse<ExpenseResponse>> getAllExpenses(
             @Valid @RequestBody SearchExpenseRequest searchRequest, Authentication authentication) {
         return ResponseEntity.ok(
-                expenseService.searchExpenses(UUID.fromString(authentication.getName()), searchRequest));
+                expenseService.searchExpenses(searchRequest, UUID.fromString(authentication.getName())));
     }
 
     @PutMapping("/{expenseId}")

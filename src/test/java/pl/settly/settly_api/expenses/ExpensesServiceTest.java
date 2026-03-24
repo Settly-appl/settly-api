@@ -245,7 +245,7 @@ class ExpensesServiceTest {
         given(expenseRepository.findByUser_Id(userId, pageable)).willReturn(page);
         given(expenseMapper.toExpenseResponse(expense)).willReturn(expectedResponse);
 
-        PagedResponse<ExpenseResponse> response = expenseService.searchExpenses(userId, searchRequest);
+        PagedResponse<ExpenseResponse> response = expenseService.searchExpenses(searchRequest, userId);
 
         assertThat(response.result()).containsExactly(expectedResponse);
         assertThat(response.pageNumber()).isEqualTo(0);

@@ -119,8 +119,8 @@ class ExpensesControllerTest {
                                                 .formatted(LocalDate.now(), PROJECT_ID)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value(EXPENSE_ID))
-                .andExpect(jsonPath("$.user").value(USER_ID))
-                .andExpect(jsonPath("$.project").value(PROJECT_ID))
+                .andExpect(jsonPath("$.userId").value(USER_ID))
+                .andExpect(jsonPath("$.projectId").value(PROJECT_ID))
                 .andExpect(jsonPath("$.shop").value("Test Shop"))
                 .andExpect(jsonPath("$.note").value("Test Note"))
                 .andExpect(jsonPath("$.totalAmount").value(100.00))
@@ -161,8 +161,8 @@ class ExpensesControllerTest {
                 .perform(get("/expenses/{expenseId}", EXPENSE_ID).with(user(USER_ID)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(EXPENSE_ID))
-                .andExpect(jsonPath("$.user").value(USER_ID))
-                .andExpect(jsonPath("$.project").value(PROJECT_ID))
+                .andExpect(jsonPath("$.userId").value(USER_ID))
+                .andExpect(jsonPath("$.projectId").value(PROJECT_ID))
                 .andExpect(jsonPath("$.shop").value("Test Shop"))
                 .andExpect(jsonPath("$.note").value("Test Note"))
                 .andExpect(jsonPath("$.totalAmount").value(100.00))
@@ -205,8 +205,8 @@ class ExpensesControllerTest {
                                                 .formatted(LocalDate.now(), PROJECT_ID)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(EXPENSE_ID))
-                .andExpect(jsonPath("$.user").value(USER_ID))
-                .andExpect(jsonPath("$.project").value(PROJECT_ID))
+                .andExpect(jsonPath("$.userId").value(USER_ID))
+                .andExpect(jsonPath("$.projectId").value(PROJECT_ID))
                 .andExpect(jsonPath("$.shop").value("Updated Shop"))
                 .andExpect(jsonPath("$.note").value("Updated Note"))
                 .andExpect(jsonPath("$.totalAmount").value(150.00))
@@ -260,7 +260,7 @@ class ExpensesControllerTest {
         // prepare
         SearchExpenseRequest searchRequest = new SearchExpenseRequest(0, 10, null, null);
         PagedResponse<ExpenseResponse> pagedResponse = new PagedResponse<>(List.of(responseExpense), 0, 1);
-        given(expenseService.searchExpenses(UUID.fromString(USER_ID), searchRequest)).willReturn(pagedResponse);
+        given(expenseService.searchExpenses(searchRequest, UUID.fromString(USER_ID))).willReturn(pagedResponse);
 
         mockMvc
                 .perform(post("/expenses/commands/search")
@@ -280,7 +280,7 @@ class ExpensesControllerTest {
                 .andExpect(jsonPath("$.pageNumber").value(0))
                 .andExpect(jsonPath("$.numberOfPages").value(1));
 
-        verify(expenseService).searchExpenses(eq(UUID.fromString(USER_ID)), any(SearchExpenseRequest.class));
+        verify(expenseService).searchExpenses(any(SearchExpenseRequest.class), eq(UUID.fromString(USER_ID)));
     }
 
     // endregion

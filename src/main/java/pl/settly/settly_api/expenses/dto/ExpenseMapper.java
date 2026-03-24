@@ -14,8 +14,8 @@ public interface ExpenseMapper {
     @Mapping(target = "createdAt", ignore = true)
     Expense toExpense(CreateRequestExpense request);
 
-    @Mapping(source = "user.id", target = "user")
-    @Mapping(source = "project.id", target = "project")
+    @Mapping(source = "user.id", target = "userId")
+    @Mapping(source = "project.id", target = "projectId")
     @Mapping(source = "date", target = "date")
     ExpenseResponse toExpenseResponse(Expense expense);
 }

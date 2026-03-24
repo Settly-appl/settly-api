@@ -7,8 +7,8 @@ import java.util.UUID;
 
 public record ExpenseResponse(
         UUID id,
-        UUID user,
-        UUID project,
+        UUID userId,
+        UUID projectId,
         String shop,
         String note,
         BigDecimal totalAmount,

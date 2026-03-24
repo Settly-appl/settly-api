@@ -13,4 +13,4 @@ public record CreateRequestExpense(
         @NotNull(message = "Total amount is required") @DecimalMin(value = "0.01", message = "Amount must be greater than 0")
                 BigDecimal totalAmount,
         @NotNull(message = "Date is required") LocalDate date,
-        UUID project) {}
+        UUID projectId) {}

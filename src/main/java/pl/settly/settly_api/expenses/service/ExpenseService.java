@@ -50,7 +50,7 @@ public class ExpenseService {
     }
 
     public PagedResponse<ExpenseResponse> searchExpenses(
-            UUID userId, SearchExpenseRequest searchRequest) {
+            SearchExpenseRequest searchRequest, UUID userId) {
         Pageable pageable = createPageable(searchRequest);
         Page<Expense> expensesPage = expenseRepository.findByUser_Id(userId, pageable);
         List<ExpenseResponse> responses =
