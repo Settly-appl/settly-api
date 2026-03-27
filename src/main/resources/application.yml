@@ -12,12 +12,12 @@ spring:
   security:
     oauth2:
       resourceserver:
-        jwt:
-          issuer-uri: http://localhost:9090/realms/settly
+        jwt:                                                                                                                                                                                                                                                               
+            jwk-set-uri: http://localhost/auth/realms/settly/protocol/openid-connect/certs
 
 keycloak:
   client-id: settly
   admin:
-    server-url: http://localhost:9090
+    server-url: http://localhost/auth
     realm: settly
     client-id: settly-api-admin
