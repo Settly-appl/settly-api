@@ -14,6 +14,6 @@ public class KeycloakUserInfoMapper {
         jwt.getClaimAsString("email"),
         jwt.getClaimAsString("preferred_username"),
         jwt.getClaimAsString("name"),
-        jwt.getClaimAsString("picture"));
+        jwt.getClaimAsString("avatar_url"));
   }
 }
