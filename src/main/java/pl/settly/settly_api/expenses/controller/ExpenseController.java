@@ -2,6 +2,11 @@ package pl.settly.settly_api.expenses.controller;
 
 import jakarta.validation.Valid;
 import java.util.UUID;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -45,19 +50,16 @@ public class ExpenseController {
   }
 
   @GetMapping
-  public ResponseEntity<PagedResponse<ExpenseResponse>> getAllExpenses(
-      @RequestParam(defaultValue = "0") int pageNumber,
-      @RequestParam(defaultValue = "10") int pageSize,
-      @RequestParam(defaultValue = "createdAt") String sortBy,
-      @RequestParam(defaultValue = "asc") String sortDirection,
-      Authentication authentication) {
+  public ResponseEntity<Page<ExpenseResponse>> getAllExpenses(
+          @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.ASC) Pageable pageable,
+          @RequestParam(required = false) String category,
+          Authentication authentication) {
+
+    UUID userId = UUID.fromString(authentication.getName());
+
     return ResponseEntity.ok(
-        expenseService.searchExpenses(
-            pageNumber,
-            pageSize,
-            sortBy,
-            sortDirection,
-            UUID.fromString(authentication.getName())));
+            expenseService.searchExpenses(pageable, category, userId)
+    );
   }
 
   @PutMapping("/{expenseId}")
