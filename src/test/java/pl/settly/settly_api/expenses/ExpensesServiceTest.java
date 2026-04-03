@@ -2,7 +2,6 @@ package pl.settly.settly_api.expenses;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 
@@ -51,8 +50,8 @@ class ExpensesServiceTest {
   @Test
   void should_create_expense_successfully() {
     CreateExpenseRequest request =
-            new CreateExpenseRequest(
-                    "Test Shop", "Test Note", BigDecimal.valueOf(100.00), LocalDate.now(), projectId);
+        new CreateExpenseRequest(
+            "Test Shop", "Test Note", BigDecimal.valueOf(100.00), LocalDate.now(), projectId);
     User user = new User();
     Expense expense = new Expense();
     Expense savedExpense = new Expense();
@@ -73,15 +72,15 @@ class ExpensesServiceTest {
   @Test
   void should_throw_when_user_not_found_on_create() {
     CreateExpenseRequest request =
-            new CreateExpenseRequest(
-                    "Test Shop", "Test Note", BigDecimal.valueOf(100.00), LocalDate.now(), projectId);
+        new CreateExpenseRequest(
+            "Test Shop", "Test Note", BigDecimal.valueOf(100.00), LocalDate.now(), projectId);
 
     given(userRepository.getReferenceById(userId))
-            .willThrow(new EntityNotFoundException("User not found"));
+        .willThrow(new EntityNotFoundException("User not found"));
 
     assertThatThrownBy(() -> expenseService.createExpense(request, userId))
-            .isInstanceOf(EntityNotFoundException.class)
-            .hasMessage("User not found");
+        .isInstanceOf(EntityNotFoundException.class)
+        .hasMessage("User not found");
   }
 
   // endregion
@@ -106,8 +105,8 @@ class ExpensesServiceTest {
     given(expenseRepository.findByIdAndUser_Id(expenseId, userId)).willReturn(Optional.empty());
 
     assertThatThrownBy(() -> expenseService.getExpense(expenseId, userId))
-            .isInstanceOf(ResourceNotFoundException.class)
-            .hasMessage("Expense does not exist");
+        .isInstanceOf(ResourceNotFoundException.class)
+        .hasMessage("Expense does not exist");
   }
 
   // endregion
@@ -117,19 +116,19 @@ class ExpensesServiceTest {
   @Test
   void should_update_expense_successfully() {
     CreateExpenseRequest request =
-            new CreateExpenseRequest(
-                    "Updated Shop",
-                    "Updated Note",
-                    BigDecimal.valueOf(150.00),
-                    LocalDate.now().plusDays(1),
-                    projectId);
+        new CreateExpenseRequest(
+            "Updated Shop",
+            "Updated Note",
+            BigDecimal.valueOf(150.00),
+            LocalDate.now().plusDays(1),
+            projectId);
     Expense existingExpense = new Expense();
     existingExpense.setId(expenseId);
     Expense savedExpense = new Expense();
     ExpenseResponse expectedResponse = createDefaultResponse();
 
     given(expenseRepository.findByIdAndUser_Id(expenseId, userId))
-            .willReturn(Optional.of(existingExpense));
+        .willReturn(Optional.of(existingExpense));
     given(expenseRepository.save(existingExpense)).willReturn(savedExpense);
     given(expenseMapper.toExpenseResponse(savedExpense)).willReturn(expectedResponse);
 
@@ -184,22 +183,22 @@ class ExpensesServiceTest {
 
     verify(expenseRepository).findExpenses(userId, category, pageable);
   }
+
   // endregion
 
   // Helper do tworzenia powtarzalnych obiektów response z nowymi polami
   private ExpenseResponse createDefaultResponse() {
     return new ExpenseResponse(
-            expenseId,
-            userId,
-            projectId,
-            "Test Shop",
-            "Test Note",
-            "FOOD",      // nowa kolumna
-            "PLN",       // nowa kolumna
-            BigDecimal.valueOf(100.00),
-            false,
-            LocalDate.now(),
-            Instant.now()
-    );
+        expenseId,
+        userId,
+        projectId,
+        "Test Shop",
+        "Test Note",
+        "FOOD", // nowa kolumna
+        "PLN", // nowa kolumna
+        BigDecimal.valueOf(100.00),
+        false,
+        LocalDate.now(),
+        Instant.now());
   }
 }

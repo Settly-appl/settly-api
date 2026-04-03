@@ -48,7 +48,7 @@ public class Expense {
   @Column(name = "currency", length = 3, nullable = false)
   private String currency;
 
-  @Column(name = "total_amount",length = 500, nullable = true)
+  @Column(name = "total_amount", length = 500, nullable = true)
   private BigDecimal totalAmount;
 
   @Builder.Default

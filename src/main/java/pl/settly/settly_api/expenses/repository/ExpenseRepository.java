@@ -1,9 +1,8 @@
 package pl.settly.settly_api.expenses.repository;
 
+import io.lettuce.core.dynamic.annotation.Param;
 import java.util.Optional;
 import java.util.UUID;
-
-import io.lettuce.core.dynamic.annotation.Param;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -13,11 +12,9 @@ import pl.settly.settly_api.expenses.model.Expense;
 public interface ExpenseRepository extends JpaRepository<Expense, UUID> {
   Optional<Expense> findByIdAndUser_Id(UUID id, UUID userId);
 
-  @Query("SELECT e FROM Expense e WHERE e.user.id = :userId " +
-          "AND (:category IS NULL OR :category = '' OR e.category = :category)")
+  @Query(
+      "SELECT e FROM Expense e WHERE e.user.id = :userId "
+          + "AND (:category IS NULL OR :category = '' OR e.category = :category)")
   Page<Expense> findExpenses(
-          @Param("userId") UUID userId,
-          @Param("category") String category,
-          Pageable pageable
-  );
+      @Param("userId") UUID userId, @Param("category") String category, Pageable pageable);
 }
