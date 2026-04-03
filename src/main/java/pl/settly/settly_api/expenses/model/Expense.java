@@ -42,6 +42,12 @@ public class Expense {
   @Column(name = "note", length = 500, nullable = true)
   private String note;
 
+  @Column(name = "category", length = 50, nullable = true)
+  private String category;
+
+  @Column(name = "currency", length = 3, nullable = false)
+  private String currency;
+
   @Column(name = "total_amount", precision = 10, scale = 2, nullable = true)
   private BigDecimal totalAmount;
 

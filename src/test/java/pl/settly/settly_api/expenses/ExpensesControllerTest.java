@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.*;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -32,7 +33,6 @@ import pl.settly.settly_api.auth.config.SecurityConfig;
 import pl.settly.settly_api.auth.user.filter.UserSyncFilter;
 import pl.settly.settly_api.auth.user.mapper.KeycloakUserInfoMapper;
 import pl.settly.settly_api.auth.user.service.UserService;
-import pl.settly.settly_api.common.search.PagedResponse;
 import pl.settly.settly_api.expenses.controller.ExpenseController;
 import pl.settly.settly_api.expenses.dto.CreateExpenseRequest;
 import pl.settly.settly_api.expenses.dto.ExpenseResponse;
@@ -59,6 +59,7 @@ class ExpensesControllerTest {
 
   @BeforeEach
   void setUp() throws Exception {
+    // Odblokowanie filtra synchronizacji użytkownika dla testów WebMvc
     doAnswer(
             inv -> {
               inv.getArgument(2, FilterChain.class)
@@ -75,6 +76,8 @@ class ExpensesControllerTest {
             UUID.fromString(PROJECT_ID),
             "Test Shop",
             "Test Note",
+            "FOOD",
+            "PLN",
             BigDecimal.valueOf(100.00),
             false,
             LocalDate.now(),
@@ -87,6 +90,8 @@ class ExpensesControllerTest {
             UUID.fromString(PROJECT_ID),
             "Updated Shop",
             "Updated Note",
+            "SHOPPING", // Dodana kategoria
+            "PLN", // Dodana waluta
             BigDecimal.valueOf(150.00),
             false,
             LocalDate.now(),
@@ -267,24 +272,39 @@ class ExpensesControllerTest {
   @Test
   void should_return_200_when_searching_expenses() throws Exception {
     // Arrange
-    var pagedResponse = new PagedResponse<>(List.of(responseExpense), 0, 1);
+    // Tworzymy Pageable, który odpowiada temu, co przyjdzie z kontrolera (domyślne lub z
+    // parametrów)
+    Pageable pageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "createdAt"));
 
-    // Using any() for optional params can make tests less brittle to minor controller changes
-    given(expenseService.searchExpenses(eq(0), eq(10), any(), any(), eq(UUID.fromString(USER_ID))))
+    // Tworzymy mockową odpowiedź typu Page zamiast PagedResponse
+    Page<ExpenseResponse> pagedResponse =
+        new PageImpl<>(
+            List.of(responseExpense), pageable, 1 // total elements
+            );
+
+    // Mockujemy serwis z nową sygnaturą (Pageable zamiast wielu int/String)
+    given(expenseService.searchExpenses(any(Pageable.class), any(), eq(UUID.fromString(USER_ID))))
         .willReturn(pagedResponse);
 
     // Act & Assert
     mockMvc
         .perform(
-            get("/expenses").param("pageNumber", "0").param("pageSize", "10").with(user(USER_ID)))
+            get("/expenses")
+                .param("page", "0") // Nowa nazwa: page zamiast pageNumber
+                .param("size", "10") // Nowa nazwa: size zamiast pageSize
+                .param("sort", "createdAt,desc") // Nowy format sortowania
+                .with(user(USER_ID)))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.result").isArray())
-        .andExpect(jsonPath("$.result[0].id").value(EXPENSE_ID))
-        .andExpect(jsonPath("$.pageNumber").value(0))
-        .andExpect(jsonPath("$.numberOfPages").value(1));
+        // W Page dane są w polu "content", a nie "result"
+        .andExpect(jsonPath("$.content").isArray())
+        .andExpect(jsonPath("$.content[0].id").value(EXPENSE_ID))
+        // Metadane w Page mają inne nazwy niż w Twoim starym PagedResponse
+        .andExpect(jsonPath("$.number").value(0)) // numer bieżącej strony
+        .andExpect(jsonPath("$.totalPages").value(1)) // suma stron
+        .andExpect(jsonPath("$.totalElements").value(1)); // suma wszystkich rekordów
 
-    // Optional: Verify the service was actually hit
-    verify(expenseService).searchExpenses(0, 10, "createdAt", "asc", UUID.fromString(USER_ID));
+    // Verify: Sprawdzamy, czy serwis został wywołany z jakimkolwiek obiektem Pageable
+    verify(expenseService).searchExpenses(any(Pageable.class), any(), eq(UUID.fromString(USER_ID)));
   }
 
   // endregion

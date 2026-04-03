@@ -2,6 +2,10 @@ package pl.settly.settly_api.expenses.controller;
 
 import jakarta.validation.Valid;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -14,7 +18,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import pl.settly.settly_api.common.search.PagedResponse;
 import pl.settly.settly_api.expenses.dto.CreateExpenseRequest;
 import pl.settly.settly_api.expenses.dto.ExpenseResponse;
 import pl.settly.settly_api.expenses.service.ExpenseService;
@@ -45,19 +48,15 @@ public class ExpenseController {
   }
 
   @GetMapping
-  public ResponseEntity<PagedResponse<ExpenseResponse>> getAllExpenses(
-      @RequestParam(defaultValue = "0") int pageNumber,
-      @RequestParam(defaultValue = "10") int pageSize,
-      @RequestParam(defaultValue = "createdAt") String sortBy,
-      @RequestParam(defaultValue = "asc") String sortDirection,
+  public ResponseEntity<Page<ExpenseResponse>> getAllExpenses(
+      @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.ASC)
+          Pageable pageable,
+      @RequestParam(required = false) String category,
       Authentication authentication) {
-    return ResponseEntity.ok(
-        expenseService.searchExpenses(
-            pageNumber,
-            pageSize,
-            sortBy,
-            sortDirection,
-            UUID.fromString(authentication.getName())));
+
+    UUID userId = UUID.fromString(authentication.getName());
+
+    return ResponseEntity.ok(expenseService.searchExpenses(pageable, category, userId));
   }
 
   @PutMapping("/{expenseId}")

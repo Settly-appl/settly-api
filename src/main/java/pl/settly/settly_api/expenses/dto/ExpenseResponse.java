@@ -11,6 +11,8 @@ public record ExpenseResponse(
     UUID projectId,
     String shop,
     String note,
+    String category,
+    String currency,
     BigDecimal totalAmount,
     Boolean isScanned,
     LocalDate date,

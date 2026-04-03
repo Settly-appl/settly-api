@@ -10,6 +10,8 @@ import java.util.UUID;
 public record CreateExpenseRequest(
     @Size(max = 255, message = "Shop name cannot exceed 255 characters") String shop,
     @Size(max = 500, message = "Note cannot exceed 500 characters") String note,
+    @Size(max = 3, message = "Currency cannot be longer than 3 characters") String currency,
+    @Size(max = 50, message = "Category cannot be longer than 50 characters") String category,
     @NotNull(message = "Total amount is required") @DecimalMin(value = "0.01", message = "Amount must be greater than 0")
         BigDecimal totalAmount,
     @NotNull(message = "Date is required") LocalDate date,

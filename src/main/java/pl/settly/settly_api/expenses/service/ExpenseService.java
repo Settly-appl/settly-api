@@ -1,16 +1,12 @@
 package pl.settly.settly_api.expenses.service;
 
-import java.util.List;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import pl.settly.settly_api.auth.user.model.User;
 import pl.settly.settly_api.auth.user.repository.UserRepository;
 import pl.settly.settly_api.common.exception.ResourceNotFoundException;
-import pl.settly.settly_api.common.search.PagedResponse;
 import pl.settly.settly_api.expenses.dto.CreateExpenseRequest;
 import pl.settly.settly_api.expenses.dto.ExpenseMapper;
 import pl.settly.settly_api.expenses.dto.ExpenseResponse;
@@ -48,13 +44,10 @@ public class ExpenseService {
         .orElseThrow(() -> new ResourceNotFoundException("Expense does not exist"));
   }
 
-  public PagedResponse<ExpenseResponse> searchExpenses(
-      int pageNumber, int pageSize, String sortBy, String sortDirection, UUID userId) {
-    Pageable pageable = createPageable(pageNumber, pageSize, sortBy, sortDirection);
-    Page<Expense> expensesPage = expenseRepository.findByUser_Id(userId, pageable);
-    List<ExpenseResponse> responses =
-        expensesPage.getContent().stream().map(expenseMapper::toExpenseResponse).toList();
-    return new PagedResponse<>(responses, expensesPage.getNumber(), expensesPage.getTotalPages());
+  public Page<ExpenseResponse> searchExpenses(Pageable pageable, String category, UUID userId) {
+    Page<Expense> expensesPage = expenseRepository.findExpenses(userId, category, pageable);
+
+    return expensesPage.map(expenseMapper::toExpenseResponse);
   }
 
   public ExpenseResponse updateExpense(UUID expenseId, UUID userId, CreateExpenseRequest request) {
@@ -76,13 +69,5 @@ public class ExpenseService {
             .findByIdAndUser_Id(expenseId, userId)
             .orElseThrow(() -> new ResourceNotFoundException("Expense does not exist"));
     expenseRepository.delete(expense);
-  }
-
-  private Pageable createPageable(
-      int pageNumber, int pageSize, String sortBy, String sortDirection) {
-    Sort.Direction direction =
-        sortDirection.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC;
-    String sort = (sortBy != null && !sortBy.isEmpty()) ? sortBy : "createdAt";
-    return PageRequest.of(pageNumber, pageSize, Sort.by(direction, sort));
   }
 }
