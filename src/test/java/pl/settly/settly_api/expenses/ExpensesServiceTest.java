@@ -51,7 +51,13 @@ class ExpensesServiceTest {
   void should_create_expense_successfully() {
     CreateExpenseRequest request =
         new CreateExpenseRequest(
-            "Test Shop", "Test Note", BigDecimal.valueOf(100.00), LocalDate.now(), projectId);
+            "Test Shop",
+            "Test Note",
+            "Test category",
+            "PLN",
+            BigDecimal.valueOf(100.00),
+            LocalDate.now(),
+            projectId);
     User user = new User();
     Expense expense = new Expense();
     Expense savedExpense = new Expense();
@@ -73,7 +79,13 @@ class ExpensesServiceTest {
   void should_throw_when_user_not_found_on_create() {
     CreateExpenseRequest request =
         new CreateExpenseRequest(
-            "Test Shop", "Test Note", BigDecimal.valueOf(100.00), LocalDate.now(), projectId);
+            "Test Shop",
+            "Test Note",
+            "Test category",
+            "PLN",
+            BigDecimal.valueOf(100.00),
+            LocalDate.now(),
+            projectId);
 
     given(userRepository.getReferenceById(userId))
         .willThrow(new EntityNotFoundException("User not found"));
@@ -119,6 +131,8 @@ class ExpensesServiceTest {
         new CreateExpenseRequest(
             "Updated Shop",
             "Updated Note",
+            "Update category",
+            "PLN",
             BigDecimal.valueOf(150.00),
             LocalDate.now().plusDays(1),
             projectId);
