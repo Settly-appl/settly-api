@@ -120,6 +120,11 @@ public class FriendshipService {
         .toList();
   }
 
+  public boolean areFriends(UUID userId, UUID friendId) {
+    return friendshipRepository.existsAcceptedFriendship(
+        userId, friendId, FriendshipStatus.ACCEPTED);
+  }
+
   public List<PendingFriendshipRequestsResponse> getOutgoingFriendshipsRequest(UUID userId) {
     List<Friendship> friendships =
         friendshipRepository.findAllByRequesterUserIdAndStatus(userId, FriendshipStatus.PENDING);
