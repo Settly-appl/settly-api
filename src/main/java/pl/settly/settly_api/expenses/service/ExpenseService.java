@@ -45,12 +45,8 @@ public class ExpenseService {
   }
 
   public Page<ExpenseResponse> searchExpenses(Pageable pageable, String category, UUID userId) {
-
-    // 1. Wywołujemy repozytorium z przekazanym Pageable
     Page<Expense> expensesPage = expenseRepository.findExpenses(userId, category, pageable);
 
-    // 2. Mapujemy stronę encji na stronę Response DTO
-    // Metoda .map() z klasy Page dba o zachowanie metadanych (ilość stron, obecna strona itp.)
     return expensesPage.map(expenseMapper::toExpenseResponse);
   }
 
