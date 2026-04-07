@@ -3,6 +3,7 @@ package pl.settly.settly_api.expenses.dto;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import pl.settly.settly_api.expenses.model.Expense;
+import pl.settly.settly_api.expenses.model.ExpenseItem;
 import pl.settly.settly_api.expenses.model.ExpenseSplit;
 
 @Mapper(componentModel = "spring")
@@ -24,4 +25,11 @@ public interface ExpenseMapper {
   @Mapping(source = "user.id", target = "userId")
   @Mapping(source = "expenseSplitType", target = "splitType")
   ExpenseSplitResponse toExpenseSplitResponse(ExpenseSplit expenseSplit);
+
+  @Mapping(target = "id", ignore = true)
+  @Mapping(target = "expense", ignore = true)
+  ExpenseItem toExpenseItem(CreateExpenseItemRequest request);
+
+  @Mapping(source = "expense.id", target = "expenseId")
+  ExpenseItemResponse toExpenseItemResponse(ExpenseItem expenseItem);
 }

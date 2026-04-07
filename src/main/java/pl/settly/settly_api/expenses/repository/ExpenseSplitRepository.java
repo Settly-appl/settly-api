@@ -10,5 +10,7 @@ public interface ExpenseSplitRepository extends JpaRepository<ExpenseSplit, UUID
 
   List<ExpenseSplit> findByExpenseId(UUID expenseId);
 
+  boolean existsByExpenseIdAndUserId(UUID expenseId, UUID userId);
+
   List<ExpenseSplit> findByUserIdAndSettledFalse(UUID userId);
 }

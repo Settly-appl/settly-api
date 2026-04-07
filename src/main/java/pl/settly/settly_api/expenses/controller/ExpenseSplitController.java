@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -51,6 +52,14 @@ public class ExpenseSplitController {
       @PathVariable UUID expenseId, Authentication authentication) {
     expenseSplitService.deleteAllSplits(expenseId, UUID.fromString(authentication.getName()));
     return ResponseEntity.noContent().build();
+  }
+
+  @PatchMapping("/{expenseId}/splits/{splitId}/settle")
+  public ResponseEntity<ExpenseSplitResponse> settleSplit(
+      @PathVariable UUID expenseId, @PathVariable UUID splitId, Authentication authentication) {
+    return ResponseEntity.ok(
+        expenseSplitService.settleSplit(
+            expenseId, splitId, UUID.fromString(authentication.getName())));
   }
 
   @GetMapping("/splits/unsettled")

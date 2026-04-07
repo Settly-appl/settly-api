@@ -8,4 +8,5 @@ import pl.settly.settly_api.expenses.model.ExpenseSplitType;
 
 public record CreateExpenseSplitRequest(
     @NotNull ExpenseSplitType expenseSplitType,
-    @NotNull @Size(min = 1) @Valid List<SplitParticipant> participants) {}
+    @NotNull @Size(min = 1) @Valid List<SplitParticipant> participants,
+    @Valid List<ItemSplitAssignment> itemAssignments) {}
