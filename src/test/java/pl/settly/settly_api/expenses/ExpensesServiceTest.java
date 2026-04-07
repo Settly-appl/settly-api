@@ -25,10 +25,15 @@ import org.springframework.data.domain.Sort;
 import pl.settly.settly_api.auth.user.model.User;
 import pl.settly.settly_api.auth.user.repository.UserRepository;
 import pl.settly.settly_api.common.exception.ResourceNotFoundException;
+import pl.settly.settly_api.expenses.dto.CreateExpenseItemRequest;
 import pl.settly.settly_api.expenses.dto.CreateExpenseRequest;
+import pl.settly.settly_api.expenses.dto.ExpenseItemResponse;
 import pl.settly.settly_api.expenses.dto.ExpenseMapper;
 import pl.settly.settly_api.expenses.dto.ExpenseResponse;
 import pl.settly.settly_api.expenses.model.Expense;
+import pl.settly.settly_api.expenses.model.ExpenseItem;
+import pl.settly.settly_api.expenses.repository.ExpenseItemRepository;
+import pl.settly.settly_api.expenses.repository.ExpenseItemSplitRepository;
 import pl.settly.settly_api.expenses.repository.ExpenseRepository;
 import pl.settly.settly_api.expenses.service.ExpenseService;
 
@@ -36,6 +41,8 @@ import pl.settly.settly_api.expenses.service.ExpenseService;
 class ExpensesServiceTest {
 
   @Mock ExpenseRepository expenseRepository;
+  @Mock ExpenseItemRepository expenseItemRepository;
+  @Mock ExpenseItemSplitRepository expenseItemSplitRepository;
   @Mock ExpenseMapper expenseMapper;
   @Mock UserRepository userRepository;
 
@@ -200,6 +207,154 @@ class ExpensesServiceTest {
 
   // endregion
 
+  // region addItem
+
+  @Test
+  void should_add_item_to_expense_successfully() {
+    Expense expense = new Expense();
+    expense.setId(expenseId);
+    CreateExpenseItemRequest request =
+        new CreateExpenseItemRequest("Milk", BigDecimal.valueOf(6.00), BigDecimal.ONE, "groceries");
+    ExpenseItem item = new ExpenseItem();
+    ExpenseItem savedItem = new ExpenseItem();
+    savedItem.setExpense(expense);
+    UUID itemId = UUID.randomUUID();
+    ExpenseItemResponse expectedResponse =
+        new ExpenseItemResponse(
+            itemId, expenseId, "Milk", BigDecimal.valueOf(6.00), BigDecimal.ONE, "groceries");
+
+    given(expenseRepository.findByIdAndUser_Id(expenseId, userId)).willReturn(Optional.of(expense));
+    given(expenseMapper.toExpenseItem(request)).willReturn(item);
+    given(expenseItemRepository.save(item)).willReturn(savedItem);
+    given(expenseMapper.toExpenseItemResponse(savedItem)).willReturn(expectedResponse);
+
+    ExpenseItemResponse response = expenseService.addItem(expenseId, userId, request);
+
+    assertThat(response).isEqualTo(expectedResponse);
+    assertThat(item.getExpense()).isEqualTo(expense);
+    verify(expenseItemRepository).save(item);
+  }
+
+  @Test
+  void should_throw_when_expense_not_found_on_add_item() {
+    given(expenseRepository.findByIdAndUser_Id(expenseId, userId)).willReturn(Optional.empty());
+
+    CreateExpenseItemRequest request =
+        new CreateExpenseItemRequest("Milk", BigDecimal.valueOf(6.00), BigDecimal.ONE, null);
+
+    assertThatThrownBy(() -> expenseService.addItem(expenseId, userId, request))
+        .isInstanceOf(ResourceNotFoundException.class)
+        .hasMessage("Expense does not exist");
+  }
+
+  // endregion
+
+  // region getItems
+
+  @Test
+  void should_return_items_for_expense() {
+    Expense expense = new Expense();
+    expense.setId(expenseId);
+    ExpenseItem item = new ExpenseItem();
+    item.setExpense(expense);
+    UUID itemId = UUID.randomUUID();
+    ExpenseItemResponse expectedResponse =
+        new ExpenseItemResponse(
+            itemId, expenseId, "Milk", BigDecimal.valueOf(6.00), BigDecimal.ONE, null);
+
+    given(expenseRepository.findByIdAndUser_Id(expenseId, userId)).willReturn(Optional.of(expense));
+    given(expenseItemRepository.findByExpenseId(expenseId)).willReturn(List.of(item));
+    given(expenseMapper.toExpenseItemResponse(item)).willReturn(expectedResponse);
+
+    List<ExpenseItemResponse> result = expenseService.getItems(expenseId, userId);
+
+    assertThat(result).hasSize(1).containsExactly(expectedResponse);
+  }
+
+  @Test
+  void should_throw_when_expense_not_found_on_get_items() {
+    given(expenseRepository.findByIdAndUser_Id(expenseId, userId)).willReturn(Optional.empty());
+
+    assertThatThrownBy(() -> expenseService.getItems(expenseId, userId))
+        .isInstanceOf(ResourceNotFoundException.class)
+        .hasMessage("Expense does not exist");
+  }
+
+  // endregion
+
+  // region deleteItem
+
+  @Test
+  void should_delete_item_successfully() {
+    Expense expense = new Expense();
+    expense.setId(expenseId);
+    UUID itemId = UUID.randomUUID();
+    ExpenseItem item = new ExpenseItem();
+    item.setId(itemId);
+    item.setExpense(expense);
+
+    given(expenseRepository.findByIdAndUser_Id(expenseId, userId)).willReturn(Optional.of(expense));
+    given(expenseItemRepository.findById(itemId)).willReturn(Optional.of(item));
+    given(expenseItemSplitRepository.existsByExpenseItemId(itemId)).willReturn(false);
+
+    expenseService.deleteItem(expenseId, itemId, userId);
+
+    verify(expenseItemRepository).delete(item);
+  }
+
+  @Test
+  void should_throw_when_item_not_found_on_delete() {
+    Expense expense = new Expense();
+    expense.setId(expenseId);
+    UUID itemId = UUID.randomUUID();
+
+    given(expenseRepository.findByIdAndUser_Id(expenseId, userId)).willReturn(Optional.of(expense));
+    given(expenseItemRepository.findById(itemId)).willReturn(Optional.empty());
+
+    assertThatThrownBy(() -> expenseService.deleteItem(expenseId, itemId, userId))
+        .isInstanceOf(ResourceNotFoundException.class)
+        .hasMessage("Item does not exist");
+  }
+
+  @Test
+  void should_throw_when_item_belongs_to_different_expense() {
+    Expense expense = new Expense();
+    expense.setId(expenseId);
+    Expense otherExpense = new Expense();
+    otherExpense.setId(UUID.randomUUID());
+    UUID itemId = UUID.randomUUID();
+    ExpenseItem item = new ExpenseItem();
+    item.setId(itemId);
+    item.setExpense(otherExpense);
+
+    given(expenseRepository.findByIdAndUser_Id(expenseId, userId)).willReturn(Optional.of(expense));
+    given(expenseItemRepository.findById(itemId)).willReturn(Optional.of(item));
+
+    assertThatThrownBy(() -> expenseService.deleteItem(expenseId, itemId, userId))
+        .isInstanceOf(ResourceNotFoundException.class)
+        .hasMessage("Item does not exist");
+  }
+
+  @Test
+  void should_throw_when_deleting_item_that_is_part_of_split() {
+    Expense expense = new Expense();
+    expense.setId(expenseId);
+    UUID itemId = UUID.randomUUID();
+    ExpenseItem item = new ExpenseItem();
+    item.setId(itemId);
+    item.setExpense(expense);
+
+    given(expenseRepository.findByIdAndUser_Id(expenseId, userId)).willReturn(Optional.of(expense));
+    given(expenseItemRepository.findById(itemId)).willReturn(Optional.of(item));
+    given(expenseItemSplitRepository.existsByExpenseItemId(itemId)).willReturn(true);
+
+    assertThatThrownBy(() -> expenseService.deleteItem(expenseId, itemId, userId))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("Cannot delete item");
+  }
+
+  // endregion
+
   // Helper do tworzenia powtarzalnych obiektów response z nowymi polami
   private ExpenseResponse createDefaultResponse() {
     return new ExpenseResponse(
@@ -208,8 +363,8 @@ class ExpensesServiceTest {
         projectId,
         "Test Shop",
         "Test Note",
-        "FOOD", // nowa kolumna
-        "PLN", // nowa kolumna
+        "FOOD",
+        "PLN",
         BigDecimal.valueOf(100.00),
         false,
         LocalDate.now(),

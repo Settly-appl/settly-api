@@ -34,7 +34,9 @@ import pl.settly.settly_api.auth.user.filter.UserSyncFilter;
 import pl.settly.settly_api.auth.user.mapper.KeycloakUserInfoMapper;
 import pl.settly.settly_api.auth.user.service.UserService;
 import pl.settly.settly_api.expenses.controller.ExpenseController;
+import pl.settly.settly_api.expenses.dto.CreateExpenseItemRequest;
 import pl.settly.settly_api.expenses.dto.CreateExpenseRequest;
+import pl.settly.settly_api.expenses.dto.ExpenseItemResponse;
 import pl.settly.settly_api.expenses.dto.ExpenseResponse;
 import pl.settly.settly_api.expenses.service.ExpenseService;
 
@@ -305,6 +307,126 @@ class ExpensesControllerTest {
 
     // Verify: Sprawdzamy, czy serwis został wywołany z jakimkolwiek obiektem Pageable
     verify(expenseService).searchExpenses(any(Pageable.class), any(), eq(UUID.fromString(USER_ID)));
+  }
+
+  // endregion
+
+  // region addItem
+
+  @Test
+  void should_return_201_when_item_added() throws Exception {
+    String itemId = "44444444-4444-4444-4444-444444444444";
+    ExpenseItemResponse itemResponse =
+        new ExpenseItemResponse(
+            UUID.fromString(itemId),
+            UUID.fromString(EXPENSE_ID),
+            "Milk",
+            BigDecimal.valueOf(6.00),
+            BigDecimal.ONE,
+            "groceries");
+
+    given(
+            expenseService.addItem(
+                eq(UUID.fromString(EXPENSE_ID)),
+                eq(UUID.fromString(USER_ID)),
+                any(CreateExpenseItemRequest.class)))
+        .willReturn(itemResponse);
+
+    mockMvc
+        .perform(
+            post("/expenses/{expenseId}/items", EXPENSE_ID)
+                .with(user(USER_ID))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                        "name": "Milk",
+                        "price": 6.00,
+                        "quantity": 1,
+                        "category": "groceries"
+                    }
+                    """))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.id").value(itemId))
+        .andExpect(jsonPath("$.expenseId").value(EXPENSE_ID))
+        .andExpect(jsonPath("$.name").value("Milk"))
+        .andExpect(jsonPath("$.price").value(6.00));
+  }
+
+  @Test
+  void should_return_401_when_adding_item_without_auth() throws Exception {
+    mockMvc
+        .perform(
+            post("/expenses/{expenseId}/items", EXPENSE_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                        "name": "Milk",
+                        "price": 6.00,
+                        "quantity": 1
+                    }
+                    """))
+        .andExpect(status().isUnauthorized());
+  }
+
+  // endregion
+
+  // region getItems
+
+  @Test
+  void should_return_200_when_getting_items() throws Exception {
+    String itemId = "44444444-4444-4444-4444-444444444444";
+    ExpenseItemResponse itemResponse =
+        new ExpenseItemResponse(
+            UUID.fromString(itemId),
+            UUID.fromString(EXPENSE_ID),
+            "Milk",
+            BigDecimal.valueOf(6.00),
+            BigDecimal.ONE,
+            null);
+
+    given(expenseService.getItems(UUID.fromString(EXPENSE_ID), UUID.fromString(USER_ID)))
+        .willReturn(List.of(itemResponse));
+
+    mockMvc
+        .perform(get("/expenses/{expenseId}/items", EXPENSE_ID).with(user(USER_ID)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].id").value(itemId))
+        .andExpect(jsonPath("$[0].name").value("Milk"));
+  }
+
+  @Test
+  void should_return_401_when_getting_items_without_auth() throws Exception {
+    mockMvc
+        .perform(get("/expenses/{expenseId}/items", EXPENSE_ID))
+        .andExpect(status().isUnauthorized());
+  }
+
+  // endregion
+
+  // region deleteItem
+
+  @Test
+  void should_return_204_when_item_deleted() throws Exception {
+    String itemId = "44444444-4444-4444-4444-444444444444";
+
+    mockMvc
+        .perform(
+            delete("/expenses/{expenseId}/items/{itemId}", EXPENSE_ID, itemId).with(user(USER_ID)))
+        .andExpect(status().isNoContent());
+
+    verify(expenseService)
+        .deleteItem(UUID.fromString(EXPENSE_ID), UUID.fromString(itemId), UUID.fromString(USER_ID));
+  }
+
+  @Test
+  void should_return_401_when_deleting_item_without_auth() throws Exception {
+    String itemId = "44444444-4444-4444-4444-444444444444";
+
+    mockMvc
+        .perform(delete("/expenses/{expenseId}/items/{itemId}", EXPENSE_ID, itemId))
+        .andExpect(status().isUnauthorized());
   }
 
   // endregion
