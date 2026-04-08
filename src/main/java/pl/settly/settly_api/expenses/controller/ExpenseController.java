@@ -1,6 +1,7 @@
 package pl.settly.settly_api.expenses.controller;
 
 import jakarta.validation.Valid;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -18,7 +19,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import pl.settly.settly_api.expenses.dto.CreateExpenseItemRequest;
 import pl.settly.settly_api.expenses.dto.CreateExpenseRequest;
+import pl.settly.settly_api.expenses.dto.ExpenseItemResponse;
 import pl.settly.settly_api.expenses.dto.ExpenseResponse;
 import pl.settly.settly_api.expenses.service.ExpenseService;
 
@@ -49,8 +52,7 @@ public class ExpenseController {
 
   @GetMapping
   public ResponseEntity<Page<ExpenseResponse>> getAllExpenses(
-      @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.ASC)
-          Pageable pageable,
+      @PageableDefault(sort = "createdAt", direction = Sort.Direction.ASC) Pageable pageable,
       @RequestParam(required = false) String category,
       Authentication authentication) {
 
@@ -73,6 +75,30 @@ public class ExpenseController {
   public ResponseEntity<Void> deleteExpense(
       @PathVariable UUID expenseId, Authentication authentication) {
     expenseService.deleteExpense(expenseId, UUID.fromString(authentication.getName()));
+    return ResponseEntity.noContent().build();
+  }
+
+  @PostMapping("/{expenseId}/items")
+  public ResponseEntity<ExpenseItemResponse> addItem(
+      @PathVariable UUID expenseId,
+      @Valid @RequestBody CreateExpenseItemRequest request,
+      Authentication authentication) {
+    return ResponseEntity.status(HttpStatus.CREATED)
+        .body(
+            expenseService.addItem(expenseId, UUID.fromString(authentication.getName()), request));
+  }
+
+  @GetMapping("/{expenseId}/items")
+  public ResponseEntity<List<ExpenseItemResponse>> getItems(
+      @PathVariable UUID expenseId, Authentication authentication) {
+    return ResponseEntity.ok(
+        expenseService.getItems(expenseId, UUID.fromString(authentication.getName())));
+  }
+
+  @DeleteMapping("/{expenseId}/items/{itemId}")
+  public ResponseEntity<Void> deleteItem(
+      @PathVariable UUID expenseId, @PathVariable UUID itemId, Authentication authentication) {
+    expenseService.deleteItem(expenseId, itemId, UUID.fromString(authentication.getName()));
     return ResponseEntity.noContent().build();
   }
 }

@@ -39,4 +39,13 @@ public interface FriendshipRepository extends JpaRepository<Friendship, UUID> {
           + "(f.requesterUser.id = :userId OR f.receiverUser.id = :userId)")
   List<Friendship> findAllFriends(
       @Param("userId") UUID userId, @Param("accepted") FriendshipStatus accepted);
+
+  @Query(
+      "SELECT COUNT(f) > 0 FROM Friendship f WHERE f.status = :accepted AND "
+          + "(f.requesterUser.id = :userId AND f.receiverUser.id = :friendId OR "
+          + "f.requesterUser.id = :friendId AND f.receiverUser.id = :userId)")
+  boolean existsAcceptedFriendship(
+      @Param("userId") UUID userId,
+      @Param("friendId") UUID friendId,
+      @Param("accepted") FriendshipStatus accepted);
 }
