@@ -15,5 +15,9 @@ public interface FriendshipMapper {
   PendingFriendshipRequestsResponse toPendingResponse(
       Friendship friendship, FriendshipUserDto user);
 
+  @Mapping(source = "friendship.id", target = "friendshipId")
+  @Mapping(source = "user", target = "user")
+  FriendResponse toFriendResponse(Friendship friendship, FriendshipUserDto user);
+
   FriendshipUserDto toFriendshipUserDto(User user);
 }
