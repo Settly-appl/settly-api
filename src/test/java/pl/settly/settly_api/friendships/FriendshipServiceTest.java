@@ -20,6 +20,7 @@ import pl.settly.settly_api.auth.keycloak.KeycloakAdminService;
 import pl.settly.settly_api.auth.user.model.User;
 import pl.settly.settly_api.auth.user.repository.UserRepository;
 import pl.settly.settly_api.common.exception.ResourceNotFoundException;
+import pl.settly.settly_api.friendships.dto.FriendResponse;
 import pl.settly.settly_api.friendships.dto.FriendshipMapper;
 import pl.settly.settly_api.friendships.dto.FriendshipUserDto;
 import pl.settly.settly_api.friendships.dto.PendingFriendshipRequestsResponse;
@@ -342,17 +343,21 @@ public class FriendshipServiceTest {
             .status(FriendshipStatus.ACCEPTED)
             .build();
 
-    FriendshipUserDto friend1Dto = new FriendshipUserDto("Friend1", null);
-    FriendshipUserDto friend2Dto = new FriendshipUserDto("Friend2", null);
+    FriendshipUserDto friend1Dto = new FriendshipUserDto(friend1.getId(), "Friend1", null);
+    FriendshipUserDto friend2Dto = new FriendshipUserDto(friend2.getId(), "Friend2", null);
+    FriendResponse friend1Response = new FriendResponse(asRequester.getId(), friend1Dto);
+    FriendResponse friend2Response = new FriendResponse(asReceiver.getId(), friend2Dto);
 
     given(friendshipRepository.findAllFriends(userId, FriendshipStatus.ACCEPTED))
         .willReturn(List.of(asRequester, asReceiver));
     given(friendshipMapper.toFriendshipUserDto(friend1)).willReturn(friend1Dto);
     given(friendshipMapper.toFriendshipUserDto(friend2)).willReturn(friend2Dto);
+    given(friendshipMapper.toFriendResponse(asRequester, friend1Dto)).willReturn(friend1Response);
+    given(friendshipMapper.toFriendResponse(asReceiver, friend2Dto)).willReturn(friend2Response);
 
-    List<FriendshipUserDto> result = friendshipService.getFriends(userId);
+    List<FriendResponse> result = friendshipService.getFriends(userId);
 
-    assertThat(result).hasSize(2).containsExactly(friend1Dto, friend2Dto);
+    assertThat(result).hasSize(2).containsExactly(friend1Response, friend2Response);
   }
 
   @Test
@@ -377,7 +382,7 @@ public class FriendshipServiceTest {
             .status(FriendshipStatus.PENDING)
             .createdAt(Instant.now())
             .build();
-    FriendshipUserDto userDto = new FriendshipUserDto("John", null);
+    FriendshipUserDto userDto = new FriendshipUserDto(UUID.randomUUID(), "John", null);
     PendingFriendshipRequestsResponse expectedResponse =
         new PendingFriendshipRequestsResponse(
             friendship.getId(), userDto, friendship.getCreatedAt());
@@ -391,7 +396,7 @@ public class FriendshipServiceTest {
         friendshipService.getIncomingFriendshipsRequest(userId);
 
     assertThat(result).hasSize(1);
-    assertThat(result.get(0)).isEqualTo(expectedResponse);
+    assertThat(result.getFirst()).isEqualTo(expectedResponse);
   }
 
   @Test
@@ -419,7 +424,7 @@ public class FriendshipServiceTest {
             .status(FriendshipStatus.PENDING)
             .createdAt(Instant.now())
             .build();
-    FriendshipUserDto userDto = new FriendshipUserDto("Jane", null);
+    FriendshipUserDto userDto = new FriendshipUserDto(UUID.randomUUID(), "Jane", null);
     PendingFriendshipRequestsResponse expectedResponse =
         new PendingFriendshipRequestsResponse(
             friendship.getId(), userDto, friendship.getCreatedAt());
@@ -433,7 +438,7 @@ public class FriendshipServiceTest {
         friendshipService.getOutgoingFriendshipsRequest(userId);
 
     assertThat(result).hasSize(1);
-    assertThat(result.get(0)).isEqualTo(expectedResponse);
+    assertThat(result.getFirst()).isEqualTo(expectedResponse);
   }
 
   @Test

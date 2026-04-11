@@ -31,6 +31,7 @@ import pl.settly.settly_api.auth.user.filter.UserSyncFilter;
 import pl.settly.settly_api.auth.user.mapper.KeycloakUserInfoMapper;
 import pl.settly.settly_api.auth.user.service.UserService;
 import pl.settly.settly_api.friendships.controller.FriendshipController;
+import pl.settly.settly_api.friendships.dto.FriendResponse;
 import pl.settly.settly_api.friendships.dto.FriendshipUserDto;
 import pl.settly.settly_api.friendships.dto.PendingFriendshipRequestsResponse;
 import pl.settly.settly_api.friendships.dto.RequestFriendshipResponse;
@@ -158,14 +159,19 @@ class FriendshipControllerTest {
 
   @Test
   void should_return_200_with_friends_list() throws Exception {
-    FriendshipUserDto friend = new FriendshipUserDto("John", null);
+    UUID friendshipId = UUID.randomUUID();
+    UUID friendUserId = UUID.randomUUID();
+    FriendshipUserDto friendUser = new FriendshipUserDto(friendUserId, "John", null);
+    FriendResponse friend = new FriendResponse(friendshipId, friendUser);
 
     given(friendshipService.getFriends(UUID.fromString(USER_ID))).willReturn(List.of(friend));
 
     mockMvc
         .perform(get("/friendships").with(user(USER_ID)))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$[0].displayName").value("John"));
+        .andExpect(jsonPath("$[0].friendshipId").value(friendshipId.toString()))
+        .andExpect(jsonPath("$[0].user.id").value(friendUserId.toString()))
+        .andExpect(jsonPath("$[0].user.displayName").value("John"));
   }
 
   @Test
@@ -180,7 +186,7 @@ class FriendshipControllerTest {
   @Test
   void should_return_200_with_incoming_requests() throws Exception {
     UUID friendshipId = UUID.randomUUID();
-    FriendshipUserDto userDto = new FriendshipUserDto("John", null);
+    FriendshipUserDto userDto = new FriendshipUserDto(UUID.randomUUID(), "John", null);
     PendingFriendshipRequestsResponse response =
         new PendingFriendshipRequestsResponse(friendshipId, userDto, Instant.now());
 
@@ -206,7 +212,7 @@ class FriendshipControllerTest {
   @Test
   void should_return_200_with_outgoing_requests() throws Exception {
     UUID friendshipId = UUID.randomUUID();
-    FriendshipUserDto userDto = new FriendshipUserDto("Jane", null);
+    FriendshipUserDto userDto = new FriendshipUserDto(UUID.randomUUID(), "Jane", null);
     PendingFriendshipRequestsResponse response =
         new PendingFriendshipRequestsResponse(friendshipId, userDto, Instant.now());
 
