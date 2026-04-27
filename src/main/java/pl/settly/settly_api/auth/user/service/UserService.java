@@ -58,4 +58,11 @@ public class UserService {
         .map(userMapper::toUserSearchResponse)
         .orElseThrow(() -> new ResourceNotFoundException("User not found"));
   }
+
+  public UserSearchResponse getUserById(UUID userId) {
+    return userRepository
+        .findById(userId)
+        .map(userMapper::toUserSearchResponse)
+        .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+  }
 }

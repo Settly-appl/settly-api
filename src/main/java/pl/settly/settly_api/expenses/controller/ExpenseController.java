@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 import pl.settly.settly_api.expenses.dto.CreateExpenseItemRequest;
 import pl.settly.settly_api.expenses.dto.CreateExpenseRequest;
 import pl.settly.settly_api.expenses.dto.ExpenseItemResponse;
+import pl.settly.settly_api.expenses.dto.ExpenseItemSplitUserResponse;
 import pl.settly.settly_api.expenses.dto.ExpenseResponse;
 import pl.settly.settly_api.expenses.service.ExpenseService;
 
@@ -93,6 +94,13 @@ public class ExpenseController {
       @PathVariable UUID expenseId, Authentication authentication) {
     return ResponseEntity.ok(
         expenseService.getItems(expenseId, UUID.fromString(authentication.getName())));
+  }
+
+  @GetMapping("/items/{itemId}/users")
+  public ResponseEntity<List<ExpenseItemSplitUserResponse>> getItemSplitUsers(
+      @PathVariable UUID itemId, Authentication authentication) {
+    return ResponseEntity.ok(
+        expenseService.getItemSplitUsers(itemId, UUID.fromString(authentication.getName())));
   }
 
   @DeleteMapping("/{expenseId}/items/{itemId}")

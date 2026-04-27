@@ -37,6 +37,7 @@ import pl.settly.settly_api.expenses.controller.ExpenseController;
 import pl.settly.settly_api.expenses.dto.CreateExpenseItemRequest;
 import pl.settly.settly_api.expenses.dto.CreateExpenseRequest;
 import pl.settly.settly_api.expenses.dto.ExpenseItemResponse;
+import pl.settly.settly_api.expenses.dto.ExpenseItemSplitUserResponse;
 import pl.settly.settly_api.expenses.dto.ExpenseResponse;
 import pl.settly.settly_api.expenses.service.ExpenseService;
 
@@ -400,6 +401,37 @@ class ExpensesControllerTest {
   void should_return_401_when_getting_items_without_auth() throws Exception {
     mockMvc
         .perform(get("/expenses/{expenseId}/items", EXPENSE_ID))
+        .andExpect(status().isUnauthorized());
+  }
+
+  // endregion
+
+  // region getItemSplitUsers
+
+  @Test
+  void should_return_200_when_getting_item_split_users() throws Exception {
+    String itemId = "44444444-4444-4444-4444-444444444444";
+    ExpenseItemSplitUserResponse splitUserResponse =
+        new ExpenseItemSplitUserResponse(
+            UUID.fromString(USER_ID), "test_user", "Test User", "https://avatar.example/test.png");
+
+    given(expenseService.getItemSplitUsers(UUID.fromString(itemId), UUID.fromString(USER_ID)))
+        .willReturn(List.of(splitUserResponse));
+
+    mockMvc
+        .perform(get("/expenses/items/{itemId}/users", itemId).with(user(USER_ID)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].id").value(USER_ID))
+        .andExpect(jsonPath("$[0].username").value("test_user"))
+        .andExpect(jsonPath("$[0].displayName").value("Test User"));
+  }
+
+  @Test
+  void should_return_401_when_getting_item_split_users_without_auth() throws Exception {
+    String itemId = "44444444-4444-4444-4444-444444444444";
+
+    mockMvc
+        .perform(get("/expenses/items/{itemId}/users", itemId))
         .andExpect(status().isUnauthorized());
   }
 
