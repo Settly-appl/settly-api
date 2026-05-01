@@ -7,4 +7,6 @@ import pl.settly.settly_api.expenses.model.ExpenseItem;
 
 public interface ExpenseItemRepository extends JpaRepository<ExpenseItem, UUID> {
   List<ExpenseItem> findByExpenseId(UUID expenseId);
+
+  boolean existsByIdAndExpense_User_Id(UUID id, UUID userId);
 }

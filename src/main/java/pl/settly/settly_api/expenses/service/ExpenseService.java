@@ -108,16 +108,11 @@ public class ExpenseService {
   }
 
   public List<ExpenseItemSplitUserResponse> getItemSplitUsers(UUID itemId, UUID userId) {
-    expenseItemRepository
-        .findById(itemId)
-        .filter(
-            item ->
-                item.getExpense() != null
-                    && item.getExpense().getUser() != null
-                    && item.getExpense().getUser().getId().equals(userId))
-        .orElseThrow(() -> new ResourceNotFoundException("Item does not exist"));
+    if (!expenseItemRepository.existsByIdAndExpense_User_Id(itemId, userId)) {
+      throw new ResourceNotFoundException("Item does not exist");
+    }
 
-    return expenseItemSplitRepository.findDistinctUsersByExpenseItemId(itemId).stream()
+    return expenseItemSplitRepository.findUsersByExpenseItemId(itemId).stream()
         .map(
             splitUser ->
                 new ExpenseItemSplitUserResponse(

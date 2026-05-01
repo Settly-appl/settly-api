@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import pl.settly.settly_api.auth.user.model.User;
 import pl.settly.settly_api.expenses.model.ExpenseItemSplit;
 
@@ -12,11 +13,11 @@ public interface ExpenseItemSplitRepository extends JpaRepository<ExpenseItemSpl
 
   @Query(
       """
-      select distinct split.user
+      select split.user
       from ExpenseItemSplit split
       where split.expenseItem.id = :expenseItemId
       """)
-  List<User> findDistinctUsersByExpenseItemId(UUID expenseItemId);
+  List<User> findUsersByExpenseItemId(@Param("expenseItemId") UUID expenseItemId);
 
   boolean existsByExpenseItemId(UUID expenseItemId);
 }

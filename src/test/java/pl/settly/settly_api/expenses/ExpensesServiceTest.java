@@ -288,14 +288,6 @@ class ExpensesServiceTest {
   @Test
   void should_return_split_users_for_item() {
     UUID itemId = UUID.randomUUID();
-    Expense expense = new Expense();
-    User owner = new User();
-    owner.setId(userId);
-    expense.setUser(owner);
-
-    ExpenseItem item = new ExpenseItem();
-    item.setId(itemId);
-    item.setExpense(expense);
 
     User splitUser = new User();
     UUID splitUserId = UUID.randomUUID();
@@ -304,8 +296,8 @@ class ExpensesServiceTest {
     splitUser.setDisplayName("Split User");
     splitUser.setAvatarUrl("https://avatar.example/split.png");
 
-    given(expenseItemRepository.findById(itemId)).willReturn(Optional.of(item));
-    given(expenseItemSplitRepository.findDistinctUsersByExpenseItemId(itemId))
+    given(expenseItemRepository.existsByIdAndExpense_User_Id(itemId, userId)).willReturn(true);
+    given(expenseItemSplitRepository.findUsersByExpenseItemId(itemId))
         .willReturn(List.of(splitUser));
 
     List<ExpenseItemSplitUserResponse> result = expenseService.getItemSplitUsers(itemId, userId);
@@ -319,7 +311,7 @@ class ExpensesServiceTest {
   @Test
   void should_throw_when_item_not_found_on_get_item_split_users() {
     UUID itemId = UUID.randomUUID();
-    given(expenseItemRepository.findById(itemId)).willReturn(Optional.empty());
+    given(expenseItemRepository.existsByIdAndExpense_User_Id(itemId, userId)).willReturn(false);
 
     assertThatThrownBy(() -> expenseService.getItemSplitUsers(itemId, userId))
         .isInstanceOf(ResourceNotFoundException.class)
@@ -329,16 +321,7 @@ class ExpensesServiceTest {
   @Test
   void should_throw_when_item_belongs_to_other_user_on_get_item_split_users() {
     UUID itemId = UUID.randomUUID();
-    Expense expense = new Expense();
-    User otherOwner = new User();
-    otherOwner.setId(UUID.randomUUID());
-    expense.setUser(otherOwner);
-
-    ExpenseItem item = new ExpenseItem();
-    item.setId(itemId);
-    item.setExpense(expense);
-
-    given(expenseItemRepository.findById(itemId)).willReturn(Optional.of(item));
+    given(expenseItemRepository.existsByIdAndExpense_User_Id(itemId, userId)).willReturn(false);
 
     assertThatThrownBy(() -> expenseService.getItemSplitUsers(itemId, userId))
         .isInstanceOf(ResourceNotFoundException.class)
