@@ -13,7 +13,8 @@ public interface ExpenseRepository extends JpaRepository<Expense, UUID> {
   Optional<Expense> findByIdAndUser_Id(UUID id, UUID userId);
 
   @Query(
-      "SELECT e FROM Expense e WHERE e.user.id = :userId "
+      "SELECT DISTINCT e FROM Expense e LEFT JOIN ExpenseSplit es ON es.expense.id = e.id WHERE "
+          + "(es.user.id = :userId OR e.user.id = :userId) "
           + "AND (:category IS NULL OR :category = '' OR e.category = :category)")
   Page<Expense> findExpenses(
       @Param("userId") UUID userId, @Param("category") String category, Pageable pageable);
