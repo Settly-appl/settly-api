@@ -11,6 +11,7 @@ import pl.settly.settly_api.common.exception.ResourceNotFoundException;
 import pl.settly.settly_api.expenses.dto.CreateExpenseItemRequest;
 import pl.settly.settly_api.expenses.dto.CreateExpenseRequest;
 import pl.settly.settly_api.expenses.dto.ExpenseItemResponse;
+import pl.settly.settly_api.expenses.dto.ExpenseItemSplitUserResponse;
 import pl.settly.settly_api.expenses.dto.ExpenseMapper;
 import pl.settly.settly_api.expenses.dto.ExpenseResponse;
 import pl.settly.settly_api.expenses.model.Expense;
@@ -103,6 +104,22 @@ public class ExpenseService {
 
     return expenseItemRepository.findByExpenseId(expenseId).stream()
         .map(expenseMapper::toExpenseItemResponse)
+        .toList();
+  }
+
+  public List<ExpenseItemSplitUserResponse> getItemSplitUsers(UUID itemId, UUID userId) {
+    if (!expenseItemRepository.existsByIdAndExpense_User_Id(itemId, userId)) {
+      throw new ResourceNotFoundException("Item does not exist");
+    }
+
+    return expenseItemSplitRepository.findUsersByExpenseItemId(itemId).stream()
+        .map(
+            splitUser ->
+                new ExpenseItemSplitUserResponse(
+                    splitUser.getId(),
+                    splitUser.getUsername(),
+                    splitUser.getDisplayName(),
+                    splitUser.getAvatarUrl()))
         .toList();
   }
 

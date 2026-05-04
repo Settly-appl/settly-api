@@ -28,6 +28,7 @@ import pl.settly.settly_api.common.exception.ResourceNotFoundException;
 import pl.settly.settly_api.expenses.dto.CreateExpenseItemRequest;
 import pl.settly.settly_api.expenses.dto.CreateExpenseRequest;
 import pl.settly.settly_api.expenses.dto.ExpenseItemResponse;
+import pl.settly.settly_api.expenses.dto.ExpenseItemSplitUserResponse;
 import pl.settly.settly_api.expenses.dto.ExpenseMapper;
 import pl.settly.settly_api.expenses.dto.ExpenseResponse;
 import pl.settly.settly_api.expenses.model.Expense;
@@ -278,6 +279,53 @@ class ExpensesServiceTest {
     assertThatThrownBy(() -> expenseService.getItems(expenseId, userId))
         .isInstanceOf(ResourceNotFoundException.class)
         .hasMessage("Expense does not exist");
+  }
+
+  // endregion
+
+  // region getItemSplitUsers
+
+  @Test
+  void should_return_split_users_for_item() {
+    UUID itemId = UUID.randomUUID();
+
+    User splitUser = new User();
+    UUID splitUserId = UUID.randomUUID();
+    splitUser.setId(splitUserId);
+    splitUser.setUsername("split_user");
+    splitUser.setDisplayName("Split User");
+    splitUser.setAvatarUrl("https://avatar.example/split.png");
+
+    given(expenseItemRepository.existsByIdAndExpense_User_Id(itemId, userId)).willReturn(true);
+    given(expenseItemSplitRepository.findUsersByExpenseItemId(itemId))
+        .willReturn(List.of(splitUser));
+
+    List<ExpenseItemSplitUserResponse> result = expenseService.getItemSplitUsers(itemId, userId);
+
+    assertThat(result)
+        .containsExactly(
+            new ExpenseItemSplitUserResponse(
+                splitUserId, "split_user", "Split User", "https://avatar.example/split.png"));
+  }
+
+  @Test
+  void should_throw_when_item_not_found_on_get_item_split_users() {
+    UUID itemId = UUID.randomUUID();
+    given(expenseItemRepository.existsByIdAndExpense_User_Id(itemId, userId)).willReturn(false);
+
+    assertThatThrownBy(() -> expenseService.getItemSplitUsers(itemId, userId))
+        .isInstanceOf(ResourceNotFoundException.class)
+        .hasMessage("Item does not exist");
+  }
+
+  @Test
+  void should_throw_when_item_belongs_to_other_user_on_get_item_split_users() {
+    UUID itemId = UUID.randomUUID();
+    given(expenseItemRepository.existsByIdAndExpense_User_Id(itemId, userId)).willReturn(false);
+
+    assertThatThrownBy(() -> expenseService.getItemSplitUsers(itemId, userId))
+        .isInstanceOf(ResourceNotFoundException.class)
+        .hasMessage("Item does not exist");
   }
 
   // endregion
