@@ -21,3 +21,7 @@ keycloak:
     server-url: http://localhost/auth
     realm: settly
     client-id: settly-api-admin
+
+gemini:
+  api:
+    key: ${GEMINI_API_KEY:AIzaSyCTilQzyA-m8rbMQUkg8ik0XRMtkC-fdCU}

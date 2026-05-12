@@ -35,6 +35,7 @@ public class ExpenseSplitService {
   private final ExpenseItemRepository expenseItemRepository;
   private final ExpenseItemSplitRepository expenseItemSplitRepository;
   private final UserRepository userRepository;
+  private final ExpenseAccessService expenseAccessService;
 
   private final ExpenseMapper expenseMapper;
 
@@ -45,6 +46,7 @@ public class ExpenseSplitService {
       ExpenseItemRepository expenseItemRepository,
       ExpenseItemSplitRepository expenseItemSplitRepository,
       UserRepository userRepository,
+      ExpenseAccessService expenseAccessService,
       ExpenseMapper expenseMapper) {
     this.friendshipService = friendshipService;
     this.expenseSplitRepository = expenseSplitRepository;
@@ -53,6 +55,7 @@ public class ExpenseSplitService {
     this.expenseItemSplitRepository = expenseItemSplitRepository;
     this.expenseMapper = expenseMapper;
     this.userRepository = userRepository;
+    this.expenseAccessService = expenseAccessService;
   }
 
   @Transactional
@@ -260,11 +263,7 @@ public class ExpenseSplitService {
   }
 
   public List<ExpenseSplitResponse> getSplitsForExpense(UUID expenseId, UUID userId) {
-    boolean isOwner = expenseRepository.findByIdAndUser_Id(expenseId, userId).isPresent();
-    boolean isParticipant =
-        !isOwner && expenseSplitRepository.existsByExpenseIdAndUserId(expenseId, userId);
-
-    if (!isOwner && !isParticipant) {
+    if (expenseAccessService.hasNoAccessToExpense(expenseId, userId)) {
       throw new ResourceNotFoundException("Expense does not exist");
     }
 

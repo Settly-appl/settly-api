@@ -36,6 +36,7 @@ import pl.settly.settly_api.expenses.repository.ExpenseItemRepository;
 import pl.settly.settly_api.expenses.repository.ExpenseItemSplitRepository;
 import pl.settly.settly_api.expenses.repository.ExpenseRepository;
 import pl.settly.settly_api.expenses.repository.ExpenseSplitRepository;
+import pl.settly.settly_api.expenses.service.ExpenseAccessService;
 import pl.settly.settly_api.expenses.service.ExpenseSplitService;
 import pl.settly.settly_api.friendships.service.FriendshipService;
 
@@ -49,6 +50,7 @@ class ExpenseSplitServiceTest {
   @Mock ExpenseItemSplitRepository expenseItemSplitRepository;
   @Mock UserRepository userRepository;
   @Mock ExpenseMapper expenseMapper;
+  @Mock ExpenseAccessService expenseAccessService;
 
   @InjectMocks ExpenseSplitService expenseSplitService;
 
@@ -418,7 +420,8 @@ class ExpenseSplitServiceTest {
     verify(expenseSplitRepository).saveAll(splitsCaptor.capture());
     List<ExpenseSplit> saved = splitsCaptor.getValue();
 
-    ExpenseSplit ownerSplit = saved.stream().filter(s -> s.getSettled()).findFirst().orElseThrow();
+    ExpenseSplit ownerSplit =
+        saved.stream().filter(ExpenseSplit::getSettled).findFirst().orElseThrow();
     assertThat(ownerSplit.getAmount()).isEqualByComparingTo("0");
   }
 
@@ -538,7 +541,7 @@ class ExpenseSplitServiceTest {
     Expense expense = createExpense(BigDecimal.valueOf(100));
     ExpenseSplit split = ExpenseSplit.builder().expense(expense).build();
 
-    given(expenseRepository.findByIdAndUser_Id(expenseId, userId)).willReturn(Optional.of(expense));
+    given(expenseAccessService.hasNoAccessToExpense(expenseId, userId)).willReturn(false);
     given(expenseSplitRepository.findByExpenseId(expenseId)).willReturn(List.of(split));
     given(expenseMapper.toExpenseSplitResponse(split)).willReturn(dummyResponse());
 
@@ -549,8 +552,7 @@ class ExpenseSplitServiceTest {
 
   @Test
   void should_return_splits_for_participant() {
-    given(expenseRepository.findByIdAndUser_Id(expenseId, friendId)).willReturn(Optional.empty());
-    given(expenseSplitRepository.existsByExpenseIdAndUserId(expenseId, friendId)).willReturn(true);
+    given(expenseAccessService.hasNoAccessToExpense(expenseId, friendId)).willReturn(false);
 
     ExpenseSplit split = ExpenseSplit.builder().build();
     given(expenseSplitRepository.findByExpenseId(expenseId)).willReturn(List.of(split));
@@ -566,9 +568,7 @@ class ExpenseSplitServiceTest {
   void should_throw_when_user_is_neither_owner_nor_participant() {
     UUID strangerId = UUID.randomUUID();
 
-    given(expenseRepository.findByIdAndUser_Id(expenseId, strangerId)).willReturn(Optional.empty());
-    given(expenseSplitRepository.existsByExpenseIdAndUserId(expenseId, strangerId))
-        .willReturn(false);
+    given(expenseAccessService.hasNoAccessToExpense(expenseId, strangerId)).willReturn(true);
 
     assertThatThrownBy(() -> expenseSplitService.getSplitsForExpense(expenseId, strangerId))
         .isInstanceOf(ResourceNotFoundException.class)
@@ -615,8 +615,6 @@ class ExpenseSplitServiceTest {
   @Test
   void should_throw_when_non_payer_has_settled() {
     Expense expense = createExpense(BigDecimal.valueOf(100));
-    User owner = new User();
-    owner.setId(userId);
 
     ExpenseSplit settledFriendSplit =
         ExpenseSplit.builder().user(createFriendUser(friendId)).settled(true).build();
