@@ -3,6 +3,7 @@ package pl.settly.settly_api.ai.controller;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import pl.settly.settly_api.ai.dto.DataForSingleExpenseFromReceiptResponse;
 import pl.settly.settly_api.ai.dto.GetItemsFromReceiptResponse;
 import pl.settly.settly_api.ai.service.AiGeminiService;
 
@@ -21,6 +22,14 @@ public class AiController {
       @RequestParam MultipartFile receipt) {
     GetItemsFromReceiptResponse response =
         new GetItemsFromReceiptResponse(aiGeminiService.getItemsFromReceipt(receipt));
+    return ResponseEntity.ok(response);
+  }
+
+  @PostMapping("/singleExpense")
+  public ResponseEntity<DataForSingleExpenseFromReceiptResponse> getDataForSingleExpenseFromReceipt(
+      @RequestParam MultipartFile receipt) {
+    DataForSingleExpenseFromReceiptResponse response =
+        aiGeminiService.getDataForSingleExpenseFromReceipt(receipt);
     return ResponseEntity.ok(response);
   }
 }

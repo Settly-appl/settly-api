@@ -24,4 +24,4 @@ keycloak:
 
 gemini:
   api:
-    key: ${GEMINI_API_KEY:AIzaSyCTilQzyA-m8rbMQUkg8ik0XRMtkC-fdCU}
+    key: ${GEMINI_API_KEY}
