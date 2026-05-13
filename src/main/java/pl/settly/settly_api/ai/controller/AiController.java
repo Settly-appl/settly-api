@@ -1,6 +1,5 @@
 package pl.settly.settly_api.ai.controller;
 
-import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -9,7 +8,6 @@ import pl.settly.settly_api.ai.dto.GetItemsFromReceiptResponse;
 import pl.settly.settly_api.ai.service.AiGeminiService;
 
 @RestController
-@ConditionalOnExpression("T(org.springframework.util.StringUtils).hasText('${gemini.api.key:}')")
 @RequestMapping("/ai")
 public class AiController {
 

@@ -9,14 +9,12 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.multipart.MultipartFile;
 import pl.settly.settly_api.ai.dto.*;
 
 @Service
-@ConditionalOnExpression("T(org.springframework.util.StringUtils).hasText('${gemini.api.key:}')")
 public class AiGeminiService {
 
   private static final Logger log = LoggerFactory.getLogger(AiGeminiService.class);
@@ -26,6 +24,7 @@ public class AiGeminiService {
 
   public AiGeminiService(@Value("${gemini.api.key}") String apiKey) {
     this.apiKey = apiKey;
+    log.info("Używany klucz API: {}", this.apiKey);
   }
 
   public List<ReceiptItem> getItemsFromReceipt(MultipartFile receipt) {
