@@ -9,12 +9,14 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.multipart.MultipartFile;
 import pl.settly.settly_api.ai.dto.*;
 
 @Service
+@ConditionalOnExpression("T(org.springframework.util.StringUtils).hasText('${gemini.api.key:}')")
 public class AiGeminiService {
 
   private static final Logger log = LoggerFactory.getLogger(AiGeminiService.class);
@@ -98,7 +100,7 @@ public class AiGeminiService {
               .asText("");
       if (rawJson.isBlank()) return List.of();
 
-      return objectMapper.readValue(rawJson.trim(), new TypeReference<List<ReceiptItem>>() {});
+      return objectMapper.readValue(rawJson.trim(), new TypeReference<>() {});
 
     } catch (Exception e) {
       log.error("Błąd podczas przetwarzania paragonu przez Gemini", e);
