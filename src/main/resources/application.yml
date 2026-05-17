@@ -16,8 +16,16 @@ spring:
   security:
     oauth2:
       resourceserver:
-        jwt:                                                                                                                                                                                                                                                               
+        jwt:
             jwk-set-uri: http://localhost/auth/realms/settly/protocol/openid-connect/certs
+
+  ai:
+    google:
+      genai:
+        api-key: ${GEMINI_API_KEY:}
+        chat:
+          options:
+            model: gemini-2.5-flash
 
 keycloak:
   client-id: settly
@@ -25,7 +33,3 @@ keycloak:
     server-url: http://localhost/auth
     realm: settly
     client-id: settly-api-admin
-
-gemini:
-  api:
-    key: ${GEMINI_API_KEY:}
