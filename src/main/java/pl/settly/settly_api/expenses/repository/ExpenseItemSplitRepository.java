@@ -20,4 +20,6 @@ public interface ExpenseItemSplitRepository extends JpaRepository<ExpenseItemSpl
   List<User> findUsersByExpenseItemId(@Param("expenseItemId") UUID expenseItemId);
 
   boolean existsByExpenseItemId(UUID expenseItemId);
+
+  boolean existsByExpenseItemIdAndUserId(UUID expenseItemId, UUID userId);
 }

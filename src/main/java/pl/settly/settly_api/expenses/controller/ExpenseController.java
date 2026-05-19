@@ -19,11 +19,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import pl.settly.settly_api.expenses.dto.CreateExpenseItemRequest;
-import pl.settly.settly_api.expenses.dto.CreateExpenseRequest;
-import pl.settly.settly_api.expenses.dto.ExpenseItemResponse;
-import pl.settly.settly_api.expenses.dto.ExpenseItemSplitUserResponse;
-import pl.settly.settly_api.expenses.dto.ExpenseResponse;
+import pl.settly.settly_api.expenses.dto.*;
 import pl.settly.settly_api.expenses.service.ExpenseService;
 
 @RestController
@@ -87,6 +83,13 @@ public class ExpenseController {
     return ResponseEntity.status(HttpStatus.CREATED)
         .body(
             expenseService.addItem(expenseId, UUID.fromString(authentication.getName()), request));
+  }
+
+  @GetMapping("/{expenseId}/userShare")
+  public ResponseEntity<ExpenseUserShareResponse> getUserShare(
+      @PathVariable UUID expenseId, Authentication authentication) {
+    return ResponseEntity.ok(
+        expenseService.getUserShare(expenseId, UUID.fromString(authentication.getName())));
   }
 
   @GetMapping("/{expenseId}/items")

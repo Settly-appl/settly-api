@@ -8,17 +8,14 @@ import org.springframework.stereotype.Service;
 import pl.settly.settly_api.auth.user.model.User;
 import pl.settly.settly_api.auth.user.repository.UserRepository;
 import pl.settly.settly_api.common.exception.ResourceNotFoundException;
-import pl.settly.settly_api.expenses.dto.CreateExpenseItemRequest;
-import pl.settly.settly_api.expenses.dto.CreateExpenseRequest;
-import pl.settly.settly_api.expenses.dto.ExpenseItemResponse;
-import pl.settly.settly_api.expenses.dto.ExpenseItemSplitUserResponse;
-import pl.settly.settly_api.expenses.dto.ExpenseMapper;
-import pl.settly.settly_api.expenses.dto.ExpenseResponse;
+import pl.settly.settly_api.expenses.dto.*;
 import pl.settly.settly_api.expenses.model.Expense;
 import pl.settly.settly_api.expenses.model.ExpenseItem;
+import pl.settly.settly_api.expenses.model.ExpenseSplit;
 import pl.settly.settly_api.expenses.repository.ExpenseItemRepository;
 import pl.settly.settly_api.expenses.repository.ExpenseItemSplitRepository;
 import pl.settly.settly_api.expenses.repository.ExpenseRepository;
+import pl.settly.settly_api.expenses.repository.ExpenseSplitRepository;
 
 @Service
 public class ExpenseService {
@@ -28,18 +25,24 @@ public class ExpenseService {
   private final ExpenseItemSplitRepository expenseItemSplitRepository;
   private final ExpenseMapper expenseMapper;
   private final UserRepository userRepository;
+  private final ExpenseSplitRepository expenseSplitRepository;
+  private final ExpenseAccessService expenseAccessService;
 
   public ExpenseService(
       ExpenseRepository expenseRepository,
       ExpenseItemRepository expenseItemRepository,
       ExpenseItemSplitRepository expenseItemSplitRepository,
       ExpenseMapper expenseMapper,
-      UserRepository userRepository) {
+      UserRepository userRepository,
+      ExpenseSplitRepository expenseSplitRepository,
+      ExpenseAccessService expenseAccessService) {
     this.expenseRepository = expenseRepository;
     this.expenseItemRepository = expenseItemRepository;
     this.expenseItemSplitRepository = expenseItemSplitRepository;
     this.expenseMapper = expenseMapper;
     this.userRepository = userRepository;
+    this.expenseSplitRepository = expenseSplitRepository;
+    this.expenseAccessService = expenseAccessService;
   }
 
   public ExpenseResponse createExpense(CreateExpenseRequest request, UUID userId) {
@@ -98,9 +101,9 @@ public class ExpenseService {
   }
 
   public List<ExpenseItemResponse> getItems(UUID expenseId, UUID userId) {
-    expenseRepository
-        .findByIdAndUser_Id(expenseId, userId)
-        .orElseThrow(() -> new ResourceNotFoundException("Expense does not exist"));
+    if (expenseAccessService.hasNoAccessToExpense(expenseId, userId)) {
+      throw new ResourceNotFoundException("Expense does not exist");
+    }
 
     return expenseItemRepository.findByExpenseId(expenseId).stream()
         .map(expenseMapper::toExpenseItemResponse)
@@ -108,7 +111,13 @@ public class ExpenseService {
   }
 
   public List<ExpenseItemSplitUserResponse> getItemSplitUsers(UUID itemId, UUID userId) {
-    if (!expenseItemRepository.existsByIdAndExpense_User_Id(itemId, userId)) {
+    ExpenseItem item =
+        expenseItemRepository
+            .findById(itemId)
+            .orElseThrow(() -> new ResourceNotFoundException("Item does not exist"));
+
+    UUID expenseId = item.getExpense().getId();
+    if (expenseAccessService.hasNoAccessToExpense(expenseId, userId)) {
       throw new ResourceNotFoundException("Item does not exist");
     }
 
@@ -139,5 +148,24 @@ public class ExpenseService {
     }
 
     expenseItemRepository.delete(item);
+  }
+
+  public ExpenseUserShareResponse getUserShare(UUID expenseId, UUID userId) {
+    if (expenseAccessService.hasNoAccessToExpense(expenseId, userId)) {
+      throw new ResourceNotFoundException("Expense does not exist");
+    }
+
+    ExpenseSplit userSplit =
+        expenseSplitRepository.findByExpenseId(expenseId).stream()
+            .filter(split -> split.getUser().getId().equals(userId))
+            .findFirst()
+            .orElseThrow(() -> new ResourceNotFoundException("Expense does not exist"));
+
+    Expense expense =
+        expenseRepository
+            .findById(expenseId)
+            .orElseThrow(() -> new ResourceNotFoundException("Expense does not exist"));
+
+    return new ExpenseUserShareResponse(userSplit.getAmount().doubleValue(), expense.getCurrency());
   }
 }

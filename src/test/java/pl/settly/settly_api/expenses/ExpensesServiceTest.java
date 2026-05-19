@@ -36,6 +36,7 @@ import pl.settly.settly_api.expenses.model.ExpenseItem;
 import pl.settly.settly_api.expenses.repository.ExpenseItemRepository;
 import pl.settly.settly_api.expenses.repository.ExpenseItemSplitRepository;
 import pl.settly.settly_api.expenses.repository.ExpenseRepository;
+import pl.settly.settly_api.expenses.service.ExpenseAccessService;
 import pl.settly.settly_api.expenses.service.ExpenseService;
 
 @ExtendWith(MockitoExtension.class)
@@ -46,6 +47,7 @@ class ExpensesServiceTest {
   @Mock ExpenseItemSplitRepository expenseItemSplitRepository;
   @Mock ExpenseMapper expenseMapper;
   @Mock UserRepository userRepository;
+  @Mock ExpenseAccessService expenseAccessService;
 
   @InjectMocks ExpenseService expenseService;
 
@@ -263,7 +265,7 @@ class ExpensesServiceTest {
         new ExpenseItemResponse(
             itemId, expenseId, "Milk", BigDecimal.valueOf(6.00), BigDecimal.ONE, null);
 
-    given(expenseRepository.findByIdAndUser_Id(expenseId, userId)).willReturn(Optional.of(expense));
+    given(expenseAccessService.hasNoAccessToExpense(expenseId, userId)).willReturn(false);
     given(expenseItemRepository.findByExpenseId(expenseId)).willReturn(List.of(item));
     given(expenseMapper.toExpenseItemResponse(item)).willReturn(expectedResponse);
 
@@ -274,7 +276,7 @@ class ExpensesServiceTest {
 
   @Test
   void should_throw_when_expense_not_found_on_get_items() {
-    given(expenseRepository.findByIdAndUser_Id(expenseId, userId)).willReturn(Optional.empty());
+    given(expenseAccessService.hasNoAccessToExpense(expenseId, userId)).willReturn(true);
 
     assertThatThrownBy(() -> expenseService.getItems(expenseId, userId))
         .isInstanceOf(ResourceNotFoundException.class)
@@ -288,6 +290,14 @@ class ExpensesServiceTest {
   @Test
   void should_return_split_users_for_item() {
     UUID itemId = UUID.randomUUID();
+    UUID expenseId = UUID.randomUUID();
+
+    Expense expense = new Expense();
+    expense.setId(expenseId);
+    expense.setCurrency("PLN");
+
+    ExpenseItem item = new ExpenseItem();
+    item.setExpense(expense);
 
     User splitUser = new User();
     UUID splitUserId = UUID.randomUUID();
@@ -296,7 +306,40 @@ class ExpensesServiceTest {
     splitUser.setDisplayName("Split User");
     splitUser.setAvatarUrl("https://avatar.example/split.png");
 
-    given(expenseItemRepository.existsByIdAndExpense_User_Id(itemId, userId)).willReturn(true);
+    given(expenseItemRepository.findById(itemId)).willReturn(Optional.of(item));
+    given(expenseAccessService.hasNoAccessToExpense(expenseId, userId)).willReturn(false);
+    given(expenseItemSplitRepository.findUsersByExpenseItemId(itemId))
+        .willReturn(List.of(splitUser));
+
+    List<ExpenseItemSplitUserResponse> result = expenseService.getItemSplitUsers(itemId, userId);
+
+    assertThat(result)
+        .containsExactly(
+            new ExpenseItemSplitUserResponse(
+                splitUserId, "split_user", "Split User", "https://avatar.example/split.png"));
+  }
+
+  @Test
+  void should_return_split_users_when_logged_user_is_not_in_item_split_but_belongs_to_expense() {
+    UUID itemId = UUID.randomUUID();
+    UUID expenseId = UUID.randomUUID();
+
+    Expense expense = new Expense();
+    expense.setId(expenseId);
+    expense.setCurrency("PLN");
+
+    ExpenseItem item = new ExpenseItem();
+    item.setExpense(expense);
+
+    User splitUser = new User();
+    UUID splitUserId = UUID.randomUUID();
+    splitUser.setId(splitUserId);
+    splitUser.setUsername("split_user");
+    splitUser.setDisplayName("Split User");
+    splitUser.setAvatarUrl("https://avatar.example/split.png");
+
+    given(expenseItemRepository.findById(itemId)).willReturn(Optional.of(item));
+    given(expenseAccessService.hasNoAccessToExpense(expenseId, userId)).willReturn(false);
     given(expenseItemSplitRepository.findUsersByExpenseItemId(itemId))
         .willReturn(List.of(splitUser));
 
@@ -311,7 +354,7 @@ class ExpensesServiceTest {
   @Test
   void should_throw_when_item_not_found_on_get_item_split_users() {
     UUID itemId = UUID.randomUUID();
-    given(expenseItemRepository.existsByIdAndExpense_User_Id(itemId, userId)).willReturn(false);
+    given(expenseItemRepository.findById(itemId)).willReturn(Optional.empty());
 
     assertThatThrownBy(() -> expenseService.getItemSplitUsers(itemId, userId))
         .isInstanceOf(ResourceNotFoundException.class)
@@ -321,7 +364,17 @@ class ExpensesServiceTest {
   @Test
   void should_throw_when_item_belongs_to_other_user_on_get_item_split_users() {
     UUID itemId = UUID.randomUUID();
-    given(expenseItemRepository.existsByIdAndExpense_User_Id(itemId, userId)).willReturn(false);
+    UUID expenseId = UUID.randomUUID();
+
+    Expense expense = new Expense();
+    expense.setId(expenseId);
+    expense.setCurrency("PLN");
+
+    ExpenseItem item = new ExpenseItem();
+    item.setExpense(expense);
+
+    given(expenseItemRepository.findById(itemId)).willReturn(Optional.of(item));
+    given(expenseAccessService.hasNoAccessToExpense(expenseId, userId)).willReturn(true);
 
     assertThatThrownBy(() -> expenseService.getItemSplitUsers(itemId, userId))
         .isInstanceOf(ResourceNotFoundException.class)

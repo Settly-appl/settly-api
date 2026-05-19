@@ -3,6 +3,10 @@ spring:
     name: settly-api
   profiles:
     active: dev
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 5MB
 
   data:
     redis:
@@ -12,8 +16,16 @@ spring:
   security:
     oauth2:
       resourceserver:
-        jwt:                                                                                                                                                                                                                                                               
+        jwt:
             jwk-set-uri: http://localhost/auth/realms/settly/protocol/openid-connect/certs
+
+  ai:
+    google:
+      genai:
+        api-key: ${GEMINI_API_KEY:}
+        chat:
+          options:
+            model: gemini-2.5-flash
 
 keycloak:
   client-id: settly
