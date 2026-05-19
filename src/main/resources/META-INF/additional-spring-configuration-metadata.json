@@ -1,0 +1,5 @@
+{"properties": [{
+  "name": "keycloak.client-id",
+  "type": "java.lang.String",
+  "description": "Keycloak client id"
+}]}

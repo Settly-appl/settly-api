@@ -1,0 +1,15 @@
+target/
+.git/
+.github/
+.idea/
+.vscode/
+*.iml
+.DS_Store
+.env
+.env.*
+README.md
+docker-compose.yml
+Dockerfile
+nginx/
+keycloak/
+postgres/

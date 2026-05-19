@@ -1,0 +1,17 @@
+package pl.settly.settly_api.expenses.dto;
+
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.UUID;
+
+public record CreateExpenseRequest(
+    @Size(max = 255, message = "Shop name cannot exceed 255 characters") String shop,
+    @Size(max = 500, message = "Note cannot exceed 500 characters") String note,
+    @Size(max = 3, message = "Currency cannot be longer than 3 characters") String currency,
+    @Size(max = 50, message = "Category cannot be longer than 50 characters") String category,
+    @DecimalMin(value = "0.01", message = "Amount must be greater than 0") BigDecimal totalAmount,
+    @NotNull(message = "Date is required") LocalDate date,
+    UUID projectId) {}

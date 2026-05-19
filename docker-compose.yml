@@ -1,0 +1,73 @@
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_ROOT_PASSWORD}
+      KEYCLOAK_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
+      SETTLY_DB_PASSWORD: ${SETTLY_DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/
+      - ./postgres/init.sh:/docker-entrypoint-initdb.d/init.sh
+    ports:
+      - "127.0.0.1:5432:5432"
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "127.0.0.1:6379:6379"
+
+  redisinsight:
+    image: redis/redisinsight:latest
+    ports:
+      - "127.0.0.1:5540:5540"
+    depends_on:
+      - redis
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.5.5
+    command: start-dev --import-realm
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      KC_HTTP_RELATIVE_PATH: /auth
+      KEYCLOAK_ADMIN_CLIENT_SECRET: ${KEYCLOAK_ADMIN_CLIENT_SECRET}
+    volumes:
+      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json
+    ports:
+      - "127.0.0.1:9090:8080"
+    depends_on:
+      - postgres
+
+  nginx:
+    image: nginx:alpine
+    network_mode: host
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - keycloak
+
+  settly-api:
+    image: ${SETTLY_API_IMAGE:-ghcr.io/settly-appl/settly-api:latest}
+    pull_policy: always
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/settly
+      SPRING_DATASOURCE_USERNAME: settly
+      SPRING_DATASOURCE_PASSWORD: ${SETTLY_DB_PASSWORD}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      KEYCLOAK_ADMIN_CLIENT_SECRET: ${KEYCLOAK_ADMIN_CLIENT_SECRET}
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      - postgres
+      - redis
+      - keycloak
+
+volumes:
+  postgres_data:
