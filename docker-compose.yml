@@ -50,5 +50,24 @@ services:
     depends_on:
       - keycloak
 
+  settly-api:
+    image: ${SETTLY_API_IMAGE:-ghcr.io/settly-appl/settly-api:latest}
+    pull_policy: always
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/settly
+      SPRING_DATASOURCE_USERNAME: settly
+      SPRING_DATASOURCE_PASSWORD: ${SETTLY_DB_PASSWORD}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      KEYCLOAK_ADMIN_CLIENT_SECRET: ${KEYCLOAK_ADMIN_CLIENT_SECRET}
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      - postgres
+      - redis
+      - keycloak
+
 volumes:
   postgres_data:
