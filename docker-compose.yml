@@ -56,8 +56,8 @@ services:
     restart: unless-stopped
     environment:
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/settly
-      SPRING_DATASOURCE_USERNAME: settly
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/settly-db
+      SPRING_DATASOURCE_USERNAME: settly-user
       SPRING_DATASOURCE_PASSWORD: ${SETTLY_DB_PASSWORD}
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
