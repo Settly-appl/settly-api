@@ -54,6 +54,7 @@ jobs:
           SPRING_DATASOURCE_PASSWORD: admin
           SPRING_DATA_REDIS_HOST: localhost
           SPRING_DATA_REDIS_PORT: 6379
+          GEMINI_API_KEY: dummy-key-for-ci
         run: ./mvnw -B verify -Dexec.skip=true
 
   build-and-push:
