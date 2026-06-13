@@ -23,6 +23,8 @@ public interface ExpenseMapper {
 
   @Mapping(source = "expense.id", target = "expenseId")
   @Mapping(source = "user.id", target = "userId")
+  @Mapping(source = "user.displayName", target = "userDisplayName")
+  @Mapping(source = "user.username", target = "userName")
   @Mapping(source = "expenseSplitType", target = "splitType")
   ExpenseSplitResponse toExpenseSplitResponse(ExpenseSplit expenseSplit);
 

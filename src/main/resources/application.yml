@@ -33,3 +33,7 @@ keycloak:
     server-url: ${KEYCLOAK_ADMIN_SERVER_URL:http://localhost/auth}
     realm: settly
     client-id: settly-api-admin
+
+firebase:
+  enabled: ${FIREBASE_ENABLED:false}
+  credentials: ${FIREBASE_CREDENTIALS:}

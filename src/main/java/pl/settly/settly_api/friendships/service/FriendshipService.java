@@ -2,7 +2,9 @@ package pl.settly.settly_api.friendships.service;
 
 import java.util.List;
 import java.util.UUID;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import pl.settly.settly_api.auth.keycloak.KeycloakAdminService;
 import pl.settly.settly_api.auth.user.model.User;
 import pl.settly.settly_api.auth.user.repository.UserRepository;
@@ -11,6 +13,8 @@ import pl.settly.settly_api.friendships.dto.*;
 import pl.settly.settly_api.friendships.model.Friendship;
 import pl.settly.settly_api.friendships.model.FriendshipStatus;
 import pl.settly.settly_api.friendships.repository.FriendshipRepository;
+import pl.settly.settly_api.notifications.event.FriendRequestAcceptedEvent;
+import pl.settly.settly_api.notifications.event.FriendRequestedEvent;
 
 @Service
 public class FriendshipService {
@@ -19,18 +23,22 @@ public class FriendshipService {
   private final UserRepository userRepository;
   private final FriendshipMapper friendshipMapper;
   private final KeycloakAdminService keycloakAdminService;
+  private final ApplicationEventPublisher eventPublisher;
 
   public FriendshipService(
       FriendshipRepository friendshipRepository,
       UserRepository userRepository,
       FriendshipMapper friendshipMapper,
-      KeycloakAdminService keycloakAdminService) {
+      KeycloakAdminService keycloakAdminService,
+      ApplicationEventPublisher eventPublisher) {
     this.friendshipRepository = friendshipRepository;
     this.userRepository = userRepository;
     this.friendshipMapper = friendshipMapper;
     this.keycloakAdminService = keycloakAdminService;
+    this.eventPublisher = eventPublisher;
   }
 
+  @Transactional
   public RequestFriendshipResponse requestFriendship(
       RequestFriendshipRequest requestFriendshipRequest, UUID userId) {
     if (requestFriendshipRequest.receiverId().equals(userId)) {
@@ -57,9 +65,16 @@ public class FriendshipService {
             .status(FriendshipStatus.PENDING)
             .build();
 
-    return friendshipMapper.toFriendshipResponse(friendshipRepository.save(friendship));
+    RequestFriendshipResponse response =
+        friendshipMapper.toFriendshipResponse(friendshipRepository.save(friendship));
+
+    eventPublisher.publishEvent(
+        new FriendRequestedEvent(requestFriendshipRequest.receiverId(), userId));
+
+    return response;
   }
 
+  @Transactional
   public RequestFriendshipResponse respondToFriendship(
       UUID friendshipId, String action, UUID userId) {
     Friendship friendship =
@@ -74,7 +89,15 @@ public class FriendshipService {
 
     friendship.setStatus(status);
 
-    return friendshipMapper.toFriendshipResponse(friendshipRepository.save(friendship));
+    RequestFriendshipResponse response =
+        friendshipMapper.toFriendshipResponse(friendshipRepository.save(friendship));
+
+    if (status == FriendshipStatus.ACCEPTED) {
+      eventPublisher.publishEvent(
+          new FriendRequestAcceptedEvent(friendship.getRequesterUser().getId(), userId));
+    }
+
+    return response;
   }
 
   public void deleteFriendship(UUID friendshipId, UUID userId) {

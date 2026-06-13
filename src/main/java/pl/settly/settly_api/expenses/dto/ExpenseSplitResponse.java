@@ -9,6 +9,8 @@ public record ExpenseSplitResponse(
     UUID id,
     UUID expenseId,
     UUID userId,
+    String userDisplayName,
+    String userName,
     ExpenseSplitType splitType,
     BigDecimal amount,
     boolean settled,

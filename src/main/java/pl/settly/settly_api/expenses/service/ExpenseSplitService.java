@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pl.settly.settly_api.auth.user.repository.UserRepository;
@@ -25,6 +26,7 @@ import pl.settly.settly_api.expenses.repository.ExpenseItemSplitRepository;
 import pl.settly.settly_api.expenses.repository.ExpenseRepository;
 import pl.settly.settly_api.expenses.repository.ExpenseSplitRepository;
 import pl.settly.settly_api.friendships.service.FriendshipService;
+import pl.settly.settly_api.notifications.event.ExpenseSplitCreatedEvent;
 
 @Service
 public class ExpenseSplitService {
@@ -36,6 +38,7 @@ public class ExpenseSplitService {
   private final ExpenseItemSplitRepository expenseItemSplitRepository;
   private final UserRepository userRepository;
   private final ExpenseAccessService expenseAccessService;
+  private final ApplicationEventPublisher eventPublisher;
 
   private final ExpenseMapper expenseMapper;
 
@@ -47,6 +50,7 @@ public class ExpenseSplitService {
       ExpenseItemSplitRepository expenseItemSplitRepository,
       UserRepository userRepository,
       ExpenseAccessService expenseAccessService,
+      ApplicationEventPublisher eventPublisher,
       ExpenseMapper expenseMapper) {
     this.friendshipService = friendshipService;
     this.expenseSplitRepository = expenseSplitRepository;
@@ -56,6 +60,7 @@ public class ExpenseSplitService {
     this.expenseMapper = expenseMapper;
     this.userRepository = userRepository;
     this.expenseAccessService = expenseAccessService;
+    this.eventPublisher = eventPublisher;
   }
 
   @Transactional
@@ -259,9 +264,17 @@ public class ExpenseSplitService {
 
     List<ExpenseSplit> savedSplits = expenseSplitRepository.saveAll(expenseSplits);
 
+    List<UUID> participantIds =
+        createExpenseSplitRequest.participants().stream().map(SplitParticipant::friendId).toList();
+    if (!participantIds.isEmpty()) {
+      eventPublisher.publishEvent(
+          new ExpenseSplitCreatedEvent(userId, participantIds, expense.getId(), expense.getShop()));
+    }
+
     return savedSplits.stream().map(expenseMapper::toExpenseSplitResponse).toList();
   }
 
+  @Transactional(readOnly = true)
   public List<ExpenseSplitResponse> getSplitsForExpense(UUID expenseId, UUID userId) {
     if (expenseAccessService.hasNoAccessToExpense(expenseId, userId)) {
       throw new ResourceNotFoundException("Expense does not exist");

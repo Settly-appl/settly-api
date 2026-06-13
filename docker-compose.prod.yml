@@ -64,6 +64,8 @@ services:
       KEYCLOAK_JWK_SET_URI: http://keycloak:8080/auth/realms/settly/protocol/openid-connect/certs
       KEYCLOAK_ADMIN_SERVER_URL: http://keycloak:8080/auth
       GEMINI_API_KEY: ${GEMINI_API_KEY}
+      FIREBASE_ENABLED: ${FIREBASE_ENABLED:-false}
+      FIREBASE_CREDENTIALS: ${FIREBASE_CREDENTIALS:-}
     depends_on:
       postgres:
         condition: service_healthy

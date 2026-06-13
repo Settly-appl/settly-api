@@ -16,6 +16,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import pl.settly.settly_api.auth.keycloak.KeycloakAdminService;
 import pl.settly.settly_api.auth.user.model.User;
 import pl.settly.settly_api.auth.user.repository.UserRepository;
@@ -38,6 +39,7 @@ public class FriendshipServiceTest {
   @Mock UserRepository userRepository;
   @Mock FriendshipMapper friendshipMapper;
   @Mock KeycloakAdminService keycloakAdminService;
+  @Mock ApplicationEventPublisher eventPublisher;
 
   @InjectMocks FriendshipService friendshipService;
 
@@ -168,8 +170,14 @@ public class FriendshipServiceTest {
   @Test
   void should_accept_friendship_successfully() {
     UUID friendshipId = UUID.randomUUID();
+    User requester = new User();
+    requester.setId(userId);
     Friendship friendship =
-        Friendship.builder().id(friendshipId).status(FriendshipStatus.PENDING).build();
+        Friendship.builder()
+            .id(friendshipId)
+            .requesterUser(requester)
+            .status(FriendshipStatus.PENDING)
+            .build();
     RequestFriendshipResponse expectedResponse =
         new RequestFriendshipResponse(FriendshipStatus.ACCEPTED, null);
 

@@ -54,8 +54,12 @@ public class ExpenseService {
   }
 
   public ExpenseResponse getExpense(UUID expenseId, UUID userId) {
+    // Owner or a split participant may view the expense (matches list/share visibility).
+    if (expenseAccessService.hasNoAccessToExpense(expenseId, userId)) {
+      throw new ResourceNotFoundException("Expense does not exist");
+    }
     return expenseRepository
-        .findByIdAndUser_Id(expenseId, userId)
+        .findById(expenseId)
         .map(expenseMapper::toExpenseResponse)
         .orElseThrow(() -> new ResourceNotFoundException("Expense does not exist"));
   }

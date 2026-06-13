@@ -114,7 +114,8 @@ class ExpensesServiceTest {
     Expense expense = new Expense();
     ExpenseResponse expectedResponse = createDefaultResponse();
 
-    given(expenseRepository.findByIdAndUser_Id(expenseId, userId)).willReturn(Optional.of(expense));
+    given(expenseAccessService.hasNoAccessToExpense(expenseId, userId)).willReturn(false);
+    given(expenseRepository.findById(expenseId)).willReturn(Optional.of(expense));
     given(expenseMapper.toExpenseResponse(expense)).willReturn(expectedResponse);
 
     ExpenseResponse response = expenseService.getExpense(expenseId, userId);
@@ -124,7 +125,7 @@ class ExpensesServiceTest {
 
   @Test
   void should_throw_when_expense_not_found() {
-    given(expenseRepository.findByIdAndUser_Id(expenseId, userId)).willReturn(Optional.empty());
+    given(expenseAccessService.hasNoAccessToExpense(expenseId, userId)).willReturn(true);
 
     assertThatThrownBy(() -> expenseService.getExpense(expenseId, userId))
         .isInstanceOf(ResourceNotFoundException.class)

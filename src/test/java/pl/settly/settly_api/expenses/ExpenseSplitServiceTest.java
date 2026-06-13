@@ -19,6 +19,7 @@ import org.mockito.Captor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import pl.settly.settly_api.auth.user.model.User;
 import pl.settly.settly_api.auth.user.repository.UserRepository;
 import pl.settly.settly_api.common.exception.ResourceNotFoundException;
@@ -51,6 +52,7 @@ class ExpenseSplitServiceTest {
   @Mock UserRepository userRepository;
   @Mock ExpenseMapper expenseMapper;
   @Mock ExpenseAccessService expenseAccessService;
+  @Mock ApplicationEventPublisher eventPublisher;
 
   @InjectMocks ExpenseSplitService expenseSplitService;
 
@@ -76,7 +78,15 @@ class ExpenseSplitServiceTest {
 
   private ExpenseSplitResponse dummyResponse() {
     return new ExpenseSplitResponse(
-        UUID.randomUUID(), expenseId, userId, ExpenseSplitType.EQUAL, BigDecimal.TEN, false, null);
+        UUID.randomUUID(),
+        expenseId,
+        userId,
+        "Test User",
+        "testuser",
+        ExpenseSplitType.EQUAL,
+        BigDecimal.TEN,
+        false,
+        null);
   }
 
   // region createSplit - common validations
