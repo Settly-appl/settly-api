@@ -107,7 +107,7 @@ jobs:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "docker-compose.yml,postgres/,keycloak/,nginx/"
+          source: "docker-compose.prod.yml,postgres/,keycloak/,caddy/"
           target: ${{ env.DEPLOY_PATH }}
 
       - name: Deploy via SSH
@@ -129,7 +129,7 @@ jobs:
             echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin
             echo "Deploying ${IMAGE}"
             export SETTLY_API_IMAGE="${IMAGE}"
-            docker compose pull
-            docker compose up -d
+            docker compose -f docker-compose.prod.yml pull
+            docker compose -f docker-compose.prod.yml up -d
             docker image prune -f
             docker logout ghcr.io || true

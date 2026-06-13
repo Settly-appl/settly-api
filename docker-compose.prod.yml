@@ -1,6 +1,7 @@
 services:
   postgres:
     image: postgres:18
+    restart: unless-stopped
     environment:
       POSTGRES_PASSWORD: ${POSTGRES_ROOT_PASSWORD}
       KEYCLOAK_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
@@ -8,24 +9,27 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/
       - ./postgres/init.sh:/docker-entrypoint-initdb.d/init.sh
-    ports:
-      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   redis:
     image: redis:7-alpine
-    ports:
-      - "127.0.0.1:6379:6379"
-
-  redisinsight:
-    image: redis/redisinsight:latest
-    ports:
-      - "127.0.0.1:5540:5540"
-    depends_on:
-      - redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   keycloak:
     image: quay.io/keycloak/keycloak:26.5.5
-    command: start-dev --import-realm
+    restart: unless-stopped
+    command: start --import-realm
     environment:
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
@@ -34,28 +38,23 @@ services:
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
       KC_HTTP_RELATIVE_PATH: /auth
+      KC_HOSTNAME: https://${DOMAIN}
+      KC_HTTP_ENABLED: "true"
+      KC_PROXY_HEADERS: xforwarded
+      KC_HEALTH_ENABLED: "true"
       KEYCLOAK_ADMIN_CLIENT_SECRET: ${KEYCLOAK_ADMIN_CLIENT_SECRET}
     volumes:
       - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json
-    ports:
-      - "127.0.0.1:9090:8080"
     depends_on:
-      - postgres
-
-  nginx:
-    image: nginx:alpine
-    network_mode: host
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-    depends_on:
-      - keycloak
+      postgres:
+        condition: service_healthy
 
   settly-api:
     image: ${SETTLY_API_IMAGE:-ghcr.io/settly-appl/settly-api:latest}
     pull_policy: always
     restart: unless-stopped
     environment:
-      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+      SPRING_PROFILES_ACTIVE: prod
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/settly-db
       SPRING_DATASOURCE_USERNAME: settly-user
       SPRING_DATASOURCE_PASSWORD: ${SETTLY_DB_PASSWORD}
@@ -65,12 +64,33 @@ services:
       KEYCLOAK_JWK_SET_URI: http://keycloak:8080/auth/realms/settly/protocol/openid-connect/certs
       KEYCLOAK_ADMIN_SERVER_URL: http://keycloak:8080/auth
       GEMINI_API_KEY: ${GEMINI_API_KEY}
-    ports:
-      - "127.0.0.1:8080:8080"
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL}
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - settly-api
       - keycloak
 
 volumes:
   postgres_data:
+  redis_data:
+  caddy_data:
+  caddy_config:

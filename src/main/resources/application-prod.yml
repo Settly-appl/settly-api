@@ -4,6 +4,11 @@ spring:
     username: settly-user
     password: ${SETTLY_DB_PASSWORD}
 
+server:
+  servlet:
+    context-path: /api
+  forward-headers-strategy: framework
+
 keycloak:
   admin:
     client-secret: ${KEYCLOAK_ADMIN_CLIENT_SECRET}

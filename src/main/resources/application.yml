@@ -17,7 +17,7 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-            jwk-set-uri: http://localhost/auth/realms/settly/protocol/openid-connect/certs
+            jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://localhost/auth/realms/settly/protocol/openid-connect/certs}
 
   ai:
     google:
@@ -30,6 +30,6 @@ spring:
 keycloak:
   client-id: settly
   admin:
-    server-url: http://localhost/auth
+    server-url: ${KEYCLOAK_ADMIN_SERVER_URL:http://localhost/auth}
     realm: settly
     client-id: settly-api-admin
