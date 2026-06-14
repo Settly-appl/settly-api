@@ -48,6 +48,8 @@ class ExpensesServiceTest {
   @Mock ExpenseMapper expenseMapper;
   @Mock UserRepository userRepository;
   @Mock ExpenseAccessService expenseAccessService;
+  @Mock pl.settly.settly_api.projects.repository.ProjectRepository projectRepository;
+  @Mock pl.settly.settly_api.projects.service.ProjectAccessService projectAccessService;
 
   @InjectMocks ExpenseService expenseService;
 
@@ -75,6 +77,7 @@ class ExpensesServiceTest {
 
     given(expenseMapper.toExpense(request)).willReturn(expense);
     given(userRepository.getReferenceById(userId)).willReturn(user);
+    given(projectAccessService.isMember(projectId, userId)).willReturn(true);
     given(expenseRepository.save(expense)).willReturn(savedExpense);
     given(expenseMapper.toExpenseResponse(savedExpense)).willReturn(expectedResponse);
 
@@ -154,6 +157,7 @@ class ExpensesServiceTest {
 
     given(expenseRepository.findByIdAndUser_Id(expenseId, userId))
         .willReturn(Optional.of(existingExpense));
+    given(projectAccessService.isMember(projectId, userId)).willReturn(true);
     given(expenseRepository.save(existingExpense)).willReturn(savedExpense);
     given(expenseMapper.toExpenseResponse(savedExpense)).willReturn(expectedResponse);
 

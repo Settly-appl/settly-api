@@ -16,6 +16,9 @@ import pl.settly.settly_api.expenses.repository.ExpenseItemRepository;
 import pl.settly.settly_api.expenses.repository.ExpenseItemSplitRepository;
 import pl.settly.settly_api.expenses.repository.ExpenseRepository;
 import pl.settly.settly_api.expenses.repository.ExpenseSplitRepository;
+import pl.settly.settly_api.projects.model.Project;
+import pl.settly.settly_api.projects.repository.ProjectRepository;
+import pl.settly.settly_api.projects.service.ProjectAccessService;
 
 @Service
 public class ExpenseService {
@@ -27,6 +30,8 @@ public class ExpenseService {
   private final UserRepository userRepository;
   private final ExpenseSplitRepository expenseSplitRepository;
   private final ExpenseAccessService expenseAccessService;
+  private final ProjectRepository projectRepository;
+  private final ProjectAccessService projectAccessService;
 
   public ExpenseService(
       ExpenseRepository expenseRepository,
@@ -35,7 +40,9 @@ public class ExpenseService {
       ExpenseMapper expenseMapper,
       UserRepository userRepository,
       ExpenseSplitRepository expenseSplitRepository,
-      ExpenseAccessService expenseAccessService) {
+      ExpenseAccessService expenseAccessService,
+      ProjectRepository projectRepository,
+      ProjectAccessService projectAccessService) {
     this.expenseRepository = expenseRepository;
     this.expenseItemRepository = expenseItemRepository;
     this.expenseItemSplitRepository = expenseItemSplitRepository;
@@ -43,14 +50,28 @@ public class ExpenseService {
     this.userRepository = userRepository;
     this.expenseSplitRepository = expenseSplitRepository;
     this.expenseAccessService = expenseAccessService;
+    this.projectRepository = projectRepository;
+    this.projectAccessService = projectAccessService;
   }
 
   public ExpenseResponse createExpense(CreateExpenseRequest request, UUID userId) {
     Expense expense = expenseMapper.toExpense(request);
     User user = userRepository.getReferenceById(userId);
     expense.setUser(user);
+    expense.setProject(resolveProject(request.projectId(), userId));
     Expense savedExpense = expenseRepository.save(expense);
     return expenseMapper.toExpenseResponse(savedExpense);
+  }
+
+  /** Resolves the project for an expense, ensuring the user is a member of it. */
+  private Project resolveProject(UUID projectId, UUID userId) {
+    if (projectId == null) {
+      return null;
+    }
+    if (!projectAccessService.isMember(projectId, userId)) {
+      throw new IllegalArgumentException("You are not a member of this project");
+    }
+    return projectRepository.getReferenceById(projectId);
   }
 
   public ExpenseResponse getExpense(UUID expenseId, UUID userId) {
@@ -79,6 +100,7 @@ public class ExpenseService {
     expense.setNote(request.note());
     expense.setTotalAmount(request.totalAmount());
     expense.setDate(request.date());
+    expense.setProject(resolveProject(request.projectId(), userId));
 
     return expenseMapper.toExpenseResponse(expenseRepository.save(expense));
   }
