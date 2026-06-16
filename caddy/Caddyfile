@@ -5,14 +5,20 @@
 {$DOMAIN} {
 	encode zstd gzip
 
-	# Cap request bodies to match Spring's multipart limit (5MB)
 	request_body {
 		max_size 5MB
 	}
 
-	# Spring Boot API (context-path /api). Prefix is preserved.
-	reverse_proxy /api/* settly-api:8080
+	handle /api/* {
+		reverse_proxy settly-api:8080
+	}
 
-	# Keycloak (KC_HTTP_RELATIVE_PATH=/auth). Prefix is preserved.
-	reverse_proxy /auth/* keycloak:8080
+	handle /auth/* {
+		reverse_proxy keycloak:8080
+	}
+
+	# Everything else: the Flutter web app (nginx static server).
+	handle {
+		reverse_proxy settly-web:80
+	}
 }

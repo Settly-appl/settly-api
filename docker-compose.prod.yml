@@ -74,6 +74,11 @@ services:
       keycloak:
         condition: service_started
 
+  settly-web:
+    image: ${SETTLY_WEB_IMAGE:-ghcr.io/settly-appl/settly-mobile:develop}
+    pull_policy: always
+    restart: unless-stopped
+
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
@@ -90,6 +95,7 @@ services:
     depends_on:
       - settly-api
       - keycloak
+      - settly-web
 
 volumes:
   postgres_data:
