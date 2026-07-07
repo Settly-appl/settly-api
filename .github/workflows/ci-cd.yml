@@ -119,6 +119,17 @@ jobs:
           cd "${{ env.DEPLOY_PATH }}"
           chmod +x postgres/init.sh || true
 
+          # Persist the pinned SHA image to .env so the deployed version is
+          # durable: a later `docker compose up -d` (manual, on reboot, or from
+          # the mobile repo's deploy) reuses this exact image instead of the
+          # mutable :latest/:develop default.
+          touch .env
+          if grep -q '^SETTLY_API_IMAGE=' .env; then
+            sed -i "s#^SETTLY_API_IMAGE=.*#SETTLY_API_IMAGE=${IMAGE}#" .env
+          else
+            echo "SETTLY_API_IMAGE=${IMAGE}" >> .env
+          fi
+
           echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin
           echo "Deploying ${IMAGE}"
           export SETTLY_API_IMAGE="${IMAGE}"
