@@ -60,7 +60,9 @@ jobs:
   build-and-push:
     needs: test
     if: (github.event_name == 'push' && github.ref == 'refs/heads/develop') || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
+    # Native ARM runner (free for public repos): the server is arm64, so we build
+    # only arm64 with no QEMU emulation — the old amd64+arm64 QEMU build was slow.
+    runs-on: ubuntu-24.04-arm
     permissions:
       contents: read
       packages: write
@@ -68,9 +70,7 @@ jobs:
       image: ${{ steps.meta.outputs.image }}
     steps:
       - uses: actions/checkout@v4
-      
-      - uses: docker/setup-qemu-action@v3
-      
+
       - uses: docker/setup-buildx-action@v3
 
       - name: Log in to GHCR
@@ -90,7 +90,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/arm64
           push: true
           tags: |
             ${{ steps.meta.outputs.image }}:sha-${{ github.sha }}
@@ -100,41 +100,31 @@ jobs:
 
   deploy:
     needs: build-and-push
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
+    permissions:
+      contents: read
+      packages: read
     steps:
       - uses: actions/checkout@v4
 
-      - name: Copy compose & configs to server
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "docker-compose.prod.yml,postgres/,keycloak/,caddy/"
-          target: ${{ env.DEPLOY_PATH }}
-
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.2.0
+      - name: Sync configs and deploy
         env:
           IMAGE: ${{ needs.build-and-push.outputs.image }}:sha-${{ github.sha }}
           GHCR_USER: ${{ github.actor }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          envs: IMAGE,GHCR_USER,GHCR_TOKEN
-          script: |
-            set -e
-            cd ${{ env.DEPLOY_PATH }}
-            chmod +x postgres/init.sh || true
+        run: |
+          set -e
+          mkdir -p "${{ env.DEPLOY_PATH }}"
+          cp -r docker-compose.prod.yml postgres keycloak caddy "${{ env.DEPLOY_PATH }}/"
+          cd "${{ env.DEPLOY_PATH }}"
+          chmod +x postgres/init.sh || true
 
-            echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin
-            echo "Deploying ${IMAGE}"
-            export SETTLY_API_IMAGE="${IMAGE}"
-            docker compose -f docker-compose.prod.yml pull
-            docker compose -f docker-compose.prod.yml up -d
-            docker compose -f docker-compose.prod.yml exec -T caddy \
-              caddy reload --config /etc/caddy/Caddyfile || true
-            docker image prune -f
-            docker logout ghcr.io || true
+          echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin
+          echo "Deploying ${IMAGE}"
+          export SETTLY_API_IMAGE="${IMAGE}"
+          docker compose -f docker-compose.prod.yml pull
+          docker compose -f docker-compose.prod.yml up -d
+          docker compose -f docker-compose.prod.yml exec -T caddy \
+            caddy reload --config /etc/caddy/Caddyfile || true
+          docker image prune -f
+          docker logout ghcr.io || true

@@ -68,7 +68,7 @@ public class KeycloakAdminService {
               user.setEmail(kc.getEmail());
               user.setUsername(kc.getUsername());
               user.setDisplayName(kc.getFirstName() + " " + kc.getLastName());
-              user.setAvatarUrl(null);
+              user.setAvatarUrl(extractAvatarUrl(kc));
               userRepository.save(user);
 
               UserIdentityProvider idp = new UserIdentityProvider();
@@ -81,5 +81,26 @@ public class KeycloakAdminService {
 
               return user;
             });
+  }
+
+  /**
+   * Avatar URL from the Keycloak user attributes. The Google identity-provider mapper stores the
+   * picture under {@code avatar_url}; we fall back to {@code picture} for other providers. Returns
+   * {@code null} when none is set.
+   */
+  private static String extractAvatarUrl(UserRepresentation kc) {
+    if (kc.getAttributes() == null) {
+      return null;
+    }
+    for (String key : new String[] {"avatar_url", "picture"}) {
+      var values = kc.getAttributes().get(key);
+      if (values != null
+          && !values.isEmpty()
+          && values.get(0) != null
+          && !values.get(0).isBlank()) {
+        return values.get(0);
+      }
+    }
+    return null;
   }
 }

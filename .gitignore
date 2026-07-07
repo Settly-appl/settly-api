@@ -36,3 +36,6 @@ build/
 
 ### Secrets ###
 *-firebase-adminsdk-*.json
+
+### Local dev/demo tooling (kept out of the public repo) ###
+scripts/seed_demo_data.py

@@ -290,12 +290,46 @@ class ExpenseSplitServiceTest {
     CreateExpenseSplitRequest request =
         new CreateExpenseSplitRequest(
             ExpenseSplitType.CUSTOM,
-            List.of(new SplitParticipant(friendId, BigDecimal.valueOf(100))),
+            List.of(new SplitParticipant(friendId, BigDecimal.valueOf(150))),
             null);
 
     assertThatThrownBy(() -> expenseSplitService.createSplit(expenseId, request, userId))
         .isInstanceOf(IllegalArgumentException.class)
-        .hasMessage("Participants' amounts must be less than the total expense amount");
+        .hasMessage("Participants' amounts cannot exceed the total expense amount");
+  }
+
+  @Test
+  void should_allow_custom_split_when_owner_owes_zero() {
+    Expense expense = createExpense(BigDecimal.valueOf(100));
+    User friend = createFriendUser(friendId);
+
+    given(expenseRepository.findByIdAndUser_Id(expenseId, userId)).willReturn(Optional.of(expense));
+    given(expenseSplitRepository.existsByExpenseId(expenseId)).willReturn(false);
+    given(friendshipService.areFriends(userId, friendId)).willReturn(true);
+    given(userRepository.getReferenceById(friendId)).willReturn(friend);
+    given(expenseSplitRepository.saveAll(anyList())).willAnswer(inv -> inv.getArgument(0));
+    given(expenseMapper.toExpenseSplitResponse(any())).willReturn(dummyResponse());
+
+    // Friend covers the whole total; the creator paid for them and owes 0.
+    CreateExpenseSplitRequest request =
+        new CreateExpenseSplitRequest(
+            ExpenseSplitType.CUSTOM,
+            List.of(new SplitParticipant(friendId, BigDecimal.valueOf(100))),
+            null);
+
+    List<ExpenseSplitResponse> result = expenseSplitService.createSplit(expenseId, request, userId);
+
+    assertThat(result).hasSize(2);
+    verify(expenseSplitRepository).saveAll(splitsCaptor.capture());
+    List<ExpenseSplit> saved = splitsCaptor.getValue();
+
+    ExpenseSplit ownerSplit =
+        saved.stream().filter(ExpenseSplit::getSettled).findFirst().orElseThrow();
+    ExpenseSplit friendSplit =
+        saved.stream().filter(s -> !s.getSettled()).findFirst().orElseThrow();
+
+    assertThat(ownerSplit.getAmount()).isEqualByComparingTo("0.00");
+    assertThat(friendSplit.getAmount()).isEqualByComparingTo("100.00");
   }
 
   @Test

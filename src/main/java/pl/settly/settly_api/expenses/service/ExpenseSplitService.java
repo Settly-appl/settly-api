@@ -145,9 +145,11 @@ public class ExpenseSplitService {
 
         BigDecimal ownerAmount = expense.getTotalAmount().subtract(payerAmount);
 
-        if (ownerAmount.compareTo(BigDecimal.ZERO) <= 0) {
+        // The creator may owe exactly 0 (they paid for others and take no share),
+        // but participants still cannot owe more than the total.
+        if (ownerAmount.compareTo(BigDecimal.ZERO) < 0) {
           throw new IllegalArgumentException(
-              "Participants' amounts must be less than the total expense amount");
+              "Participants' amounts cannot exceed the total expense amount");
         }
 
         expenseSplits.add(
