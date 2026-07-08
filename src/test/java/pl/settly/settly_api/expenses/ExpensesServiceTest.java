@@ -2,6 +2,7 @@ package pl.settly.settly_api.expenses;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 
@@ -50,6 +51,7 @@ class ExpensesServiceTest {
   @Mock ExpenseAccessService expenseAccessService;
   @Mock pl.settly.settly_api.projects.repository.ProjectRepository projectRepository;
   @Mock pl.settly.settly_api.projects.service.ProjectAccessService projectAccessService;
+  @Mock pl.settly.settly_api.expenses.repository.ExpenseSplitRepository expenseSplitRepository;
 
   @InjectMocks ExpenseService expenseService;
 
@@ -145,13 +147,15 @@ class ExpensesServiceTest {
         new CreateExpenseRequest(
             "Updated Shop",
             "Updated Note",
-            "Update category",
-            "PLN",
+            "EUR",
+            "food",
             BigDecimal.valueOf(150.00),
             LocalDate.now().plusDays(1),
             projectId);
     Expense existingExpense = new Expense();
     existingExpense.setId(expenseId);
+    existingExpense.setCategory("transport");
+    existingExpense.setCurrency("PLN");
     Expense savedExpense = new Expense();
     ExpenseResponse expectedResponse = createDefaultResponse();
 
@@ -164,6 +168,13 @@ class ExpensesServiceTest {
     ExpenseResponse response = expenseService.updateExpense(expenseId, userId, request);
 
     assertThat(response).isEqualTo(expectedResponse);
+    // All editable fields are applied — including category + currency, which the
+    // update used to silently drop.
+    assertThat(existingExpense.getShop()).isEqualTo("Updated Shop");
+    assertThat(existingExpense.getNote()).isEqualTo("Updated Note");
+    assertThat(existingExpense.getCategory()).isEqualTo("food");
+    assertThat(existingExpense.getCurrency()).isEqualTo("EUR");
+    assertThat(existingExpense.getTotalAmount()).isEqualByComparingTo("150.00");
     verify(expenseRepository).save(existingExpense);
   }
 
@@ -172,13 +183,20 @@ class ExpensesServiceTest {
   // region deleteExpense
 
   @Test
-  void should_delete_expense_successfully() {
+  void should_delete_expense_with_its_splits_and_items() {
     Expense expense = new Expense();
 
     given(expenseRepository.findByIdAndUser_Id(expenseId, userId)).willReturn(Optional.of(expense));
+    given(expenseItemSplitRepository.findByExpenseItemExpenseId(expenseId)).willReturn(List.of());
+    given(expenseSplitRepository.findByExpenseId(expenseId)).willReturn(List.of());
+    given(expenseItemRepository.findByExpenseId(expenseId)).willReturn(List.of());
 
     expenseService.deleteExpense(expenseId, userId);
 
+    // Children are cleared before the expense (FK constraints).
+    verify(expenseItemSplitRepository).deleteAll(anyList());
+    verify(expenseSplitRepository).deleteAll(anyList());
+    verify(expenseItemRepository).deleteAll(anyList());
     verify(expenseRepository).delete(expense);
   }
 

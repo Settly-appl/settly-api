@@ -31,8 +31,8 @@ public class NotificationEventListener {
     String actor = displayName(event.actorId());
     notificationService.sendToUser(
         event.recipientId(),
-        "New friend request",
-        actor + " sent you a friend request",
+        "Nowe zaproszenie do znajomych",
+        actor + " wysłał(a) Ci zaproszenie do znajomych",
         Map.of("type", "FRIEND_REQUEST", "actorId", event.actorId().toString()));
   }
 
@@ -42,8 +42,8 @@ public class NotificationEventListener {
     String actor = displayName(event.actorId());
     notificationService.sendToUser(
         event.recipientId(),
-        "Friend request accepted",
-        actor + " accepted your friend request",
+        "Zaproszenie zaakceptowane",
+        actor + " zaakceptował(a) Twoje zaproszenie do znajomych",
         Map.of("type", "FRIEND_REQUEST_ACCEPTED", "actorId", event.actorId().toString()));
   }
 
@@ -51,8 +51,8 @@ public class NotificationEventListener {
   @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
   public void onExpenseSplitCreated(ExpenseSplitCreatedEvent event) {
     String actor = displayName(event.actorId());
-    String where = event.shop() == null || event.shop().isBlank() ? "an expense" : event.shop();
-    String body = actor + " added you to a split for " + where;
+    String where = event.shop() == null || event.shop().isBlank() ? "wydatek" : event.shop();
+    String body = actor + " dodał(a) Cię do podziału: " + where;
     Map<String, String> data =
         Map.of(
             "type",
@@ -62,7 +62,7 @@ public class NotificationEventListener {
             "expenseId",
             event.expenseId().toString());
     for (UUID recipientId : event.recipientIds()) {
-      notificationService.sendToUser(recipientId, "New shared expense", body, data);
+      notificationService.sendToUser(recipientId, "Nowy wspólny wydatek", body, data);
     }
   }
 
@@ -71,6 +71,6 @@ public class NotificationEventListener {
         .findById(userId)
         .map(User::getDisplayName)
         .filter(name -> name != null && !name.isBlank())
-        .orElse("Someone");
+        .orElse("Ktoś");
   }
 }

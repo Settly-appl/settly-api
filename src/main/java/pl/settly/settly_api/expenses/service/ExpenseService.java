@@ -5,6 +5,7 @@ import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import pl.settly.settly_api.auth.user.model.User;
 import pl.settly.settly_api.auth.user.repository.UserRepository;
 import pl.settly.settly_api.common.exception.ResourceNotFoundException;
@@ -98,6 +99,8 @@ public class ExpenseService {
             .orElseThrow(() -> new ResourceNotFoundException("Expense does not exist"));
     expense.setShop(request.shop());
     expense.setNote(request.note());
+    expense.setCategory(request.category());
+    expense.setCurrency(request.currency());
     expense.setTotalAmount(request.totalAmount());
     expense.setDate(request.date());
     expense.setProject(resolveProject(request.projectId(), userId));
@@ -105,11 +108,20 @@ public class ExpenseService {
     return expenseMapper.toExpenseResponse(expenseRepository.save(expense));
   }
 
+  @Transactional
   public void deleteExpense(UUID expenseId, UUID userId) {
     Expense expense =
         expenseRepository
             .findByIdAndUser_Id(expenseId, userId)
             .orElseThrow(() -> new ResourceNotFoundException("Expense does not exist"));
+
+    // Remove children first — item splits, splits, then items — otherwise the
+    // foreign keys block deleting the expense.
+    expenseItemSplitRepository.deleteAll(
+        expenseItemSplitRepository.findByExpenseItemExpenseId(expenseId));
+    expenseSplitRepository.deleteAll(expenseSplitRepository.findByExpenseId(expenseId));
+    expenseItemRepository.deleteAll(expenseItemRepository.findByExpenseId(expenseId));
+
     expenseRepository.delete(expense);
   }
 

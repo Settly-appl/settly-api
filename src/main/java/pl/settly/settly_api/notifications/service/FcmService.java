@@ -7,6 +7,8 @@ import com.google.firebase.messaging.MessagingErrorCode;
 import com.google.firebase.messaging.MulticastMessage;
 import com.google.firebase.messaging.Notification;
 import com.google.firebase.messaging.SendResponse;
+import com.google.firebase.messaging.WebpushConfig;
+import com.google.firebase.messaging.WebpushNotification;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -27,6 +29,9 @@ public class FcmService {
   }
 
   private static final int MAX_BATCH = 500;
+
+  // Icon shown on web (PWA/desktop) notifications; Android uses the app icon.
+  private static final String WEB_ICON = "https://settly.duckdns.org/icons/Icon-192.png";
 
   public List<String> send(
       List<String> tokens, String title, String body, Map<String, String> data) {
@@ -56,6 +61,17 @@ public class FcmService {
     MulticastMessage message =
         MulticastMessage.builder()
             .setNotification(Notification.builder().setTitle(title).setBody(body).build())
+            // Web-specific: give the auto-displayed browser/PWA toast the Settly
+            // icon (Android uses the app icon from the top-level notification).
+            .setWebpushConfig(
+                WebpushConfig.builder()
+                    .setNotification(
+                        WebpushNotification.builder()
+                            .setTitle(title)
+                            .setBody(body)
+                            .setIcon(WEB_ICON)
+                            .build())
+                    .build())
             .putAllData(data == null ? Map.of() : data)
             .addAllTokens(tokens)
             .build();
