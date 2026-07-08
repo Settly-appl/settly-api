@@ -8,6 +8,7 @@ import com.google.firebase.messaging.MulticastMessage;
 import com.google.firebase.messaging.Notification;
 import com.google.firebase.messaging.SendResponse;
 import com.google.firebase.messaging.WebpushConfig;
+import com.google.firebase.messaging.WebpushFcmOptions;
 import com.google.firebase.messaging.WebpushNotification;
 import java.util.ArrayList;
 import java.util.List;
@@ -32,6 +33,27 @@ public class FcmService {
 
   // Icon shown on web (PWA/desktop) notifications; Android uses the app icon.
   private static final String WEB_ICON = "https://settly.duckdns.org/icons/Icon-192.png";
+  private static final String WEB_BASE = "https://settly.duckdns.org/";
+
+  /**
+   * Deep-link URL the web app opens when a notification is clicked. The app reads {@code
+   * notif_type}/{@code notif_id} on launch and navigates.
+   */
+  private static String webLink(Map<String, String> data) {
+    if (data == null) {
+      return WEB_BASE;
+    }
+    StringBuilder sb = new StringBuilder(WEB_BASE).append('?');
+    String type = data.get("type");
+    if (type != null) {
+      sb.append("notif_type=").append(type);
+    }
+    String expenseId = data.get("expenseId");
+    if (expenseId != null) {
+      sb.append("&notif_id=").append(expenseId);
+    }
+    return sb.toString();
+  }
 
   public List<String> send(
       List<String> tokens, String title, String body, Map<String, String> data) {
@@ -71,6 +93,7 @@ public class FcmService {
                             .setBody(body)
                             .setIcon(WEB_ICON)
                             .build())
+                    .setFcmOptions(WebpushFcmOptions.withLink(webLink(data)))
                     .build())
             .putAllData(data == null ? Map.of() : data)
             .addAllTokens(tokens)
