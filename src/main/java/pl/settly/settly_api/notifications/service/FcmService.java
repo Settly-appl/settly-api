@@ -52,6 +52,12 @@ public class FcmService {
     if (expenseId != null) {
       sb.append("&notif_id=").append(expenseId);
     }
+    // The inbox entry this push came from: the app marks it read on launch, so a
+    // notification the user actually acted on stops nagging from the bell.
+    String notificationId = data.get("notificationId");
+    if (notificationId != null) {
+      sb.append("&notif_ref=").append(notificationId);
+    }
     return sb.toString();
   }
 
