@@ -47,15 +47,17 @@ public class ExpenseController {
         expenseService.getExpense(expenseId, UUID.fromString(authentication.getName())));
   }
 
+  /** The user's expenses, optionally narrowed to a category and/or a project. */
   @GetMapping
   public ResponseEntity<Page<ExpenseResponse>> getAllExpenses(
       @PageableDefault(sort = "createdAt", direction = Sort.Direction.ASC) Pageable pageable,
       @RequestParam(required = false) String category,
+      @RequestParam(required = false) UUID projectId,
       Authentication authentication) {
 
     UUID userId = UUID.fromString(authentication.getName());
 
-    return ResponseEntity.ok(expenseService.searchExpenses(pageable, category, userId));
+    return ResponseEntity.ok(expenseService.searchExpenses(pageable, category, projectId, userId));
   }
 
   @PutMapping("/{expenseId}")

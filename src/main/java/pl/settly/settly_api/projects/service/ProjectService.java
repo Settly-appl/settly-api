@@ -1,11 +1,17 @@
 package pl.settly.settly_api.projects.service;
 
+import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pl.settly.settly_api.auth.user.repository.UserRepository;
 import pl.settly.settly_api.common.exception.ResourceNotFoundException;
+import pl.settly.settly_api.debts.repository.DebtRepository;
+import pl.settly.settly_api.expenses.dto.ProjectExpenseTotals;
+import pl.settly.settly_api.expenses.repository.ExpenseRepository;
 import pl.settly.settly_api.friendships.service.FriendshipService;
 import pl.settly.settly_api.projects.dto.AddProjectMemberRequest;
 import pl.settly.settly_api.projects.dto.CreateProjectRequest;
@@ -26,18 +32,24 @@ public class ProjectService {
   private final UserRepository userRepository;
   private final FriendshipService friendshipService;
   private final ProjectMapper projectMapper;
+  private final ExpenseRepository expenseRepository;
+  private final DebtRepository debtRepository;
 
   public ProjectService(
       ProjectRepository projectRepository,
       ProjectMemberRepository projectMemberRepository,
       UserRepository userRepository,
       FriendshipService friendshipService,
-      ProjectMapper projectMapper) {
+      ProjectMapper projectMapper,
+      ExpenseRepository expenseRepository,
+      DebtRepository debtRepository) {
     this.projectRepository = projectRepository;
     this.projectMemberRepository = projectMemberRepository;
     this.userRepository = userRepository;
     this.friendshipService = friendshipService;
     this.projectMapper = projectMapper;
+    this.expenseRepository = expenseRepository;
+    this.debtRepository = debtRepository;
   }
 
   @Transactional
@@ -61,19 +73,42 @@ public class ProjectService {
 
   @Transactional(readOnly = true)
   public List<ProjectResponse> getMyProjects(UUID userId) {
-    return projectRepository.findAllForMember(userId).stream()
+    List<Project> projects = projectRepository.findAllForMember(userId);
+    if (projects.isEmpty()) {
+      return List.of();
+    }
+
+    // What each project has cost, in one grouped query rather than per project.
+    Map<UUID, ProjectExpenseTotals> totals =
+        expenseRepository.sumByProject(projects.stream().map(Project::getId).toList()).stream()
+            .collect(Collectors.toMap(ProjectExpenseTotals::getProjectId, t -> t));
+
+    return projects.stream()
         .map(
             p ->
-                projectMapper.toProjectResponse(
-                    p, projectMemberRepository.countByProjectId(p.getId())))
+                withTotals(
+                    projectMapper.toProjectResponse(
+                        p, projectMemberRepository.countByProjectId(p.getId())),
+                    totals.get(p.getId())))
         .toList();
+  }
+
+  /** Attaches what a project has cost; a project with no expenses reads as 0. */
+  private ProjectResponse withTotals(ProjectResponse response, ProjectExpenseTotals totals) {
+    return totals == null
+        ? response.withExpenses(0, BigDecimal.ZERO)
+        : response.withExpenses(totals.getExpenseCount(), totals.getTotal());
   }
 
   @Transactional(readOnly = true)
   public ProjectResponse getProject(UUID projectId, UUID userId) {
     Project project = requireMember(projectId, userId);
-    return projectMapper.toProjectResponse(
-        project, projectMemberRepository.countByProjectId(projectId));
+    ProjectResponse response =
+        projectMapper.toProjectResponse(
+            project, projectMemberRepository.countByProjectId(projectId));
+
+    List<ProjectExpenseTotals> totals = expenseRepository.sumByProject(List.of(projectId));
+    return withTotals(response, totals.isEmpty() ? null : totals.get(0));
   }
 
   @Transactional
@@ -97,6 +132,14 @@ public class ProjectService {
   @Transactional
   public void deleteProject(UUID projectId, UUID userId) {
     requireOwner(projectId, userId);
+
+    // Expenses and settlements are real money and outlive the project: detach them
+    // (drop the grouping) rather than delete them. This is also load-bearing —
+    // debts.project_id carries a FK, so a project that had ever been settled up
+    // could not be deleted at all without unlinking it first.
+    expenseRepository.detachFromProject(projectId);
+    debtRepository.detachFromProject(projectId);
+
     projectMemberRepository.deleteByProjectId(projectId);
     projectRepository.deleteById(projectId);
   }

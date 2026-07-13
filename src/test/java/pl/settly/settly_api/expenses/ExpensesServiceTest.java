@@ -221,7 +221,7 @@ class ExpensesServiceTest {
     Page<Expense> page = new PageImpl<>(List.of(expense), pageable, 1);
 
     // Mockujemy wywołanie repozytorium (używamy Twojej nowej metody findExpenses)
-    given(expenseRepository.findExpenses(userId, category, pageable)).willReturn(page);
+    given(expenseRepository.findExpenses(userId, category, null, pageable)).willReturn(page);
     // Splits for the whole page are fetched in one batch (no N+1).
     given(expenseSplitRepository.findByExpenseIdIn(List.of(expenseId))).willReturn(List.of());
 
@@ -229,14 +229,34 @@ class ExpensesServiceTest {
     given(expenseMapper.toExpenseResponse(expense)).willReturn(expectedResponse);
 
     // Act
-    Page<ExpenseResponse> response = expenseService.searchExpenses(pageable, category, userId);
+    Page<ExpenseResponse> response =
+        expenseService.searchExpenses(pageable, category, null, userId);
 
     // Assert
     assertThat(response.getContent()).containsExactly(expectedResponse);
     assertThat(response.getTotalElements()).isEqualTo(1);
     assertThat(response.getNumber()).isEqualTo(0);
 
-    verify(expenseRepository).findExpenses(userId, category, pageable);
+    verify(expenseRepository).findExpenses(userId, category, null, pageable);
+  }
+
+  @Test
+  void should_narrow_expenses_to_a_project_when_asked() {
+    Pageable pageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "createdAt"));
+    Expense expense = ownedExpense();
+    expense.setId(expenseId);
+    ExpenseResponse expectedResponse = createDefaultResponse();
+
+    Page<Expense> page = new PageImpl<>(List.of(expense), pageable, 1);
+    given(expenseRepository.findExpenses(userId, null, projectId, pageable)).willReturn(page);
+    given(expenseSplitRepository.findByExpenseIdIn(List.of(expenseId))).willReturn(List.of());
+    given(expenseMapper.toExpenseResponse(expense)).willReturn(expectedResponse);
+
+    expenseService.searchExpenses(pageable, null, projectId, userId);
+
+    // The project must reach the query — otherwise a project's expense list would
+    // silently show every expense the user has.
+    verify(expenseRepository).findExpenses(userId, null, projectId, pageable);
   }
 
   // endregion

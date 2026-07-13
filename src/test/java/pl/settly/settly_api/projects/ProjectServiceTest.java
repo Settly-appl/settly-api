@@ -42,6 +42,8 @@ class ProjectServiceTest {
   @Mock UserRepository userRepository;
   @Mock FriendshipService friendshipService;
   @Mock ProjectMapper projectMapper;
+  @Mock pl.settly.settly_api.expenses.repository.ExpenseRepository expenseRepository;
+  @Mock pl.settly.settly_api.debts.repository.DebtRepository debtRepository;
 
   @InjectMocks ProjectService projectService;
 
@@ -64,12 +66,81 @@ class ProjectServiceTest {
 
   private ProjectResponse dummyProjectResponse() {
     return new ProjectResponse(
-        projectId, "Trip", null, userId, ProjectStatus.ACTIVE, 1, null, null);
+        projectId,
+        "Trip",
+        null,
+        userId,
+        ProjectStatus.ACTIVE,
+        1,
+        0,
+        java.math.BigDecimal.ZERO,
+        null,
+        null);
   }
 
   private ProjectMemberResponse dummyMemberResponse() {
     return new ProjectMemberResponse(friendId, "Alice", "alice", null, false, null);
   }
+
+  private pl.settly.settly_api.expenses.dto.ProjectExpenseTotals totals(
+      UUID id, long count, String total) {
+    return new pl.settly.settly_api.expenses.dto.ProjectExpenseTotals() {
+      @Override
+      public UUID getProjectId() {
+        return id;
+      }
+
+      @Override
+      public long getExpenseCount() {
+        return count;
+      }
+
+      @Override
+      public java.math.BigDecimal getTotal() {
+        return new java.math.BigDecimal(total);
+      }
+    };
+  }
+
+  // region project totals
+
+  @Test
+  void should_report_what_a_project_has_cost() {
+    Project project = projectOwnedBy(userId);
+    given(projectRepository.findAllForMember(userId)).willReturn(java.util.List.of(project));
+    given(projectMemberRepository.countByProjectId(projectId)).willReturn(2L);
+    given(projectMapper.toProjectResponse(any(Project.class), anyLong()))
+        .willReturn(dummyProjectResponse());
+    given(expenseRepository.sumByProject(java.util.List.of(projectId)))
+        .willReturn(java.util.List.of(totals(projectId, 3, "450.00")));
+
+    java.util.List<ProjectResponse> result = projectService.getMyProjects(userId);
+
+    assertThat(result).hasSize(1);
+    assertThat(result.get(0).expenseCount()).isEqualTo(3);
+    assertThat(result.get(0).totalAmount()).isEqualByComparingTo("450.00");
+
+    // One grouped query for the whole list — never one lookup per project.
+    verify(expenseRepository).sumByProject(java.util.List.of(projectId));
+  }
+
+  @Test
+  void should_report_zero_for_a_project_with_no_expenses() {
+    Project project = projectOwnedBy(userId);
+    given(projectRepository.findAllForMember(userId)).willReturn(java.util.List.of(project));
+    given(projectMemberRepository.countByProjectId(projectId)).willReturn(1L);
+    given(projectMapper.toProjectResponse(any(Project.class), anyLong()))
+        .willReturn(dummyProjectResponse());
+    given(expenseRepository.sumByProject(java.util.List.of(projectId)))
+        .willReturn(java.util.List.of());
+
+    java.util.List<ProjectResponse> result = projectService.getMyProjects(userId);
+
+    assertThat(result.get(0).expenseCount()).isZero();
+    assertThat(result.get(0).totalAmount()).isEqualByComparingTo("0");
+  }
+
+  // endregion
 
   // region createProject
 
@@ -164,6 +235,20 @@ class ProjectServiceTest {
     projectService.deleteProject(projectId, userId);
 
     verify(projectMemberRepository).deleteByProjectId(projectId);
+    verify(projectRepository).deleteById(projectId);
+  }
+
+  @Test
+  void should_detach_expenses_and_settlements_before_deleting_a_project() {
+    // Expenses and settlements are real money: deleting a project drops the grouping,
+    // never the records. It is also load-bearing — debts.project_id has a FK, so a
+    // project that had ever been settled up could not be deleted without unlinking.
+    given(projectRepository.findById(projectId)).willReturn(Optional.of(projectOwnedBy(userId)));
+
+    projectService.deleteProject(projectId, userId);
+
+    verify(expenseRepository).detachFromProject(projectId);
+    verify(debtRepository).detachFromProject(projectId);
     verify(projectRepository).deleteById(projectId);
   }
 

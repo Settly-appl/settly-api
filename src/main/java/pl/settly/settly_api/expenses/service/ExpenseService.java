@@ -90,8 +90,10 @@ public class ExpenseService {
     return withSettlement(expense, expenseSplitRepository.findByExpenseId(expenseId), userId);
   }
 
-  public Page<ExpenseResponse> searchExpenses(Pageable pageable, String category, UUID userId) {
-    Page<Expense> expensesPage = expenseRepository.findExpenses(userId, category, pageable);
+  public Page<ExpenseResponse> searchExpenses(
+      Pageable pageable, String category, UUID projectId, UUID userId) {
+    Page<Expense> expensesPage =
+        expenseRepository.findExpenses(userId, category, projectId, pageable);
 
     // One extra query for the whole page — never a per-expense lookup.
     Map<UUID, List<ExpenseSplit>> splitsByExpense = loadSplits(expensesPage.getContent());

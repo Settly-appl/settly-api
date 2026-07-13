@@ -292,7 +292,9 @@ class ExpensesControllerTest {
             );
 
     // Mockujemy serwis z nową sygnaturą (Pageable zamiast wielu int/String)
-    given(expenseService.searchExpenses(any(Pageable.class), any(), eq(UUID.fromString(USER_ID))))
+    given(
+            expenseService.searchExpenses(
+                any(Pageable.class), any(), any(), eq(UUID.fromString(USER_ID))))
         .willReturn(pagedResponse);
 
     // Act & Assert
@@ -313,7 +315,8 @@ class ExpensesControllerTest {
         .andExpect(jsonPath("$.totalElements").value(1)); // suma wszystkich rekordów
 
     // Verify: Sprawdzamy, czy serwis został wywołany z jakimkolwiek obiektem Pageable
-    verify(expenseService).searchExpenses(any(Pageable.class), any(), eq(UUID.fromString(USER_ID)));
+    verify(expenseService)
+        .searchExpenses(any(Pageable.class), any(), any(), eq(UUID.fromString(USER_ID)));
   }
 
   // endregion
