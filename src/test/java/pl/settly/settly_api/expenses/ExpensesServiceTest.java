@@ -34,6 +34,7 @@ import pl.settly.settly_api.expenses.dto.ExpenseMapper;
 import pl.settly.settly_api.expenses.dto.ExpenseResponse;
 import pl.settly.settly_api.expenses.model.Expense;
 import pl.settly.settly_api.expenses.model.ExpenseItem;
+import pl.settly.settly_api.expenses.model.ExpenseItemSplit;
 import pl.settly.settly_api.expenses.repository.ExpenseItemRepository;
 import pl.settly.settly_api.expenses.repository.ExpenseItemSplitRepository;
 import pl.settly.settly_api.expenses.repository.ExpenseRepository;
@@ -338,15 +339,24 @@ class ExpensesServiceTest {
 
     given(expenseItemRepository.findById(itemId)).willReturn(Optional.of(item));
     given(expenseAccessService.hasNoAccessToExpense(expenseId, userId)).willReturn(false);
-    given(expenseItemSplitRepository.findUsersByExpenseItemId(itemId))
-        .willReturn(List.of(splitUser));
+    ExpenseItemSplit itemSplit =
+        ExpenseItemSplit.builder()
+            .user(splitUser)
+            .amount(BigDecimal.valueOf(7.50)) // an unequal share of this product
+            .build();
+    given(expenseItemSplitRepository.findWithUserByExpenseItemId(itemId))
+        .willReturn(List.of(itemSplit));
 
     List<ExpenseItemSplitUserResponse> result = expenseService.getItemSplitUsers(itemId, userId);
 
     assertThat(result)
         .containsExactly(
             new ExpenseItemSplitUserResponse(
-                splitUserId, "split_user", "Split User", "https://avatar.example/split.png"));
+                splitUserId,
+                "split_user",
+                "Split User",
+                "https://avatar.example/split.png",
+                BigDecimal.valueOf(7.50)));
   }
 
   @Test
@@ -370,15 +380,24 @@ class ExpensesServiceTest {
 
     given(expenseItemRepository.findById(itemId)).willReturn(Optional.of(item));
     given(expenseAccessService.hasNoAccessToExpense(expenseId, userId)).willReturn(false);
-    given(expenseItemSplitRepository.findUsersByExpenseItemId(itemId))
-        .willReturn(List.of(splitUser));
+    ExpenseItemSplit itemSplit =
+        ExpenseItemSplit.builder()
+            .user(splitUser)
+            .amount(BigDecimal.valueOf(7.50)) // an unequal share of this product
+            .build();
+    given(expenseItemSplitRepository.findWithUserByExpenseItemId(itemId))
+        .willReturn(List.of(itemSplit));
 
     List<ExpenseItemSplitUserResponse> result = expenseService.getItemSplitUsers(itemId, userId);
 
     assertThat(result)
         .containsExactly(
             new ExpenseItemSplitUserResponse(
-                splitUserId, "split_user", "Split User", "https://avatar.example/split.png"));
+                splitUserId,
+                "split_user",
+                "Split User",
+                "https://avatar.example/split.png",
+                BigDecimal.valueOf(7.50)));
   }
 
   @Test

@@ -213,14 +213,20 @@ public class ExpenseService {
       throw new ResourceNotFoundException("Item does not exist");
     }
 
-    return expenseItemSplitRepository.findUsersByExpenseItemId(itemId).stream()
+    // Return each assignee's stored share, so an unequal split of one product survives a round-trip
+    // (the edit form prefills from this — recomputing it as an equal division would silently
+    // discard the custom amounts).
+    return expenseItemSplitRepository.findWithUserByExpenseItemId(itemId).stream()
         .map(
-            splitUser ->
-                new ExpenseItemSplitUserResponse(
-                    splitUser.getId(),
-                    splitUser.getUsername(),
-                    splitUser.getDisplayName(),
-                    splitUser.getAvatarUrl()))
+            split -> {
+              User splitUser = split.getUser();
+              return new ExpenseItemSplitUserResponse(
+                  splitUser.getId(),
+                  splitUser.getUsername(),
+                  splitUser.getDisplayName(),
+                  splitUser.getAvatarUrl(),
+                  split.getAmount());
+            })
         .toList();
   }
 

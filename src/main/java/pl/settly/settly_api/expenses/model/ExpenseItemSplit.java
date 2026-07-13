@@ -1,11 +1,13 @@
 package pl.settly.settly_api.expenses.model;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import java.math.BigDecimal;
 import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -30,4 +32,12 @@ public class ExpenseItemSplit {
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "user_id")
   private User user;
+
+  /**
+   * This user's share of this product. Usually the item total split equally among its assignees,
+   * but it may be set explicitly so one person can be charged more for the same item (unequal
+   * shares of a single product).
+   */
+  @Column(name = "amount", precision = 10, scale = 2)
+  private BigDecimal amount;
 }

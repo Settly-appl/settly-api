@@ -19,6 +19,14 @@ public interface ExpenseItemSplitRepository extends JpaRepository<ExpenseItemSpl
       """)
   List<User> findUsersByExpenseItemId(@Param("expenseItemId") UUID expenseItemId);
 
+  /**
+   * The assignees of an item together with each one's share. Fetch-joins the user because callers
+   * read it outside a transaction.
+   */
+  @Query(
+      "SELECT s FROM ExpenseItemSplit s JOIN FETCH s.user WHERE s.expenseItem.id = :expenseItemId")
+  List<ExpenseItemSplit> findWithUserByExpenseItemId(@Param("expenseItemId") UUID expenseItemId);
+
   boolean existsByExpenseItemId(UUID expenseItemId);
 
   boolean existsByExpenseItemIdAndUserId(UUID expenseItemId, UUID userId);

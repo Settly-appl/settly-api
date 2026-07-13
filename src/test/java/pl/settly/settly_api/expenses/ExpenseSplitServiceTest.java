@@ -26,6 +26,7 @@ import pl.settly.settly_api.common.exception.ResourceNotFoundException;
 import pl.settly.settly_api.expenses.dto.CreateExpenseSplitRequest;
 import pl.settly.settly_api.expenses.dto.ExpenseMapper;
 import pl.settly.settly_api.expenses.dto.ExpenseSplitResponse;
+import pl.settly.settly_api.expenses.dto.ItemShare;
 import pl.settly.settly_api.expenses.dto.ItemSplitAssignment;
 import pl.settly.settly_api.expenses.dto.SplitParticipant;
 import pl.settly.settly_api.expenses.model.Expense;
@@ -398,8 +399,8 @@ class ExpenseSplitServiceTest {
             ExpenseSplitType.BY_ITEM,
             List.of(new SplitParticipant(friendId, null)),
             List.of(
-                new ItemSplitAssignment(itemId1, List.of(userId, friendId)),
-                new ItemSplitAssignment(itemId2, List.of(userId))));
+                new ItemSplitAssignment(itemId1, List.of(userId, friendId), null),
+                new ItemSplitAssignment(itemId2, List.of(userId), null)));
 
     List<ExpenseSplitResponse> result = expenseSplitService.createSplit(expenseId, request, userId);
 
@@ -457,7 +458,7 @@ class ExpenseSplitServiceTest {
         new CreateExpenseSplitRequest(
             ExpenseSplitType.BY_ITEM,
             List.of(new SplitParticipant(friendId, null)),
-            List.of(new ItemSplitAssignment(itemId, List.of(friendId))));
+            List.of(new ItemSplitAssignment(itemId, List.of(friendId), null)));
 
     expenseSplitService.createSplit(expenseId, request, userId);
 
@@ -499,7 +500,7 @@ class ExpenseSplitServiceTest {
         new CreateExpenseSplitRequest(
             ExpenseSplitType.BY_ITEM,
             List.of(new SplitParticipant(friendId, null)),
-            List.of(new ItemSplitAssignment(UUID.randomUUID(), List.of(friendId))));
+            List.of(new ItemSplitAssignment(UUID.randomUUID(), List.of(friendId), null)));
 
     assertThatThrownBy(() -> expenseSplitService.createSplit(expenseId, request, userId))
         .isInstanceOf(IllegalArgumentException.class)
@@ -538,7 +539,7 @@ class ExpenseSplitServiceTest {
         new CreateExpenseSplitRequest(
             ExpenseSplitType.BY_ITEM,
             List.of(new SplitParticipant(friendId, null)),
-            List.of(new ItemSplitAssignment(itemId1, List.of(friendId))));
+            List.of(new ItemSplitAssignment(itemId1, List.of(friendId), null)));
 
     assertThatThrownBy(() -> expenseSplitService.createSplit(expenseId, request, userId))
         .isInstanceOf(IllegalArgumentException.class)
@@ -569,7 +570,7 @@ class ExpenseSplitServiceTest {
         new CreateExpenseSplitRequest(
             ExpenseSplitType.BY_ITEM,
             List.of(new SplitParticipant(friendId, null)),
-            List.of(new ItemSplitAssignment(itemId, List.of(strangeUserId))));
+            List.of(new ItemSplitAssignment(itemId, List.of(strangeUserId), null)));
 
     assertThatThrownBy(() -> expenseSplitService.createSplit(expenseId, request, userId))
         .isInstanceOf(IllegalArgumentException.class)
@@ -788,6 +789,140 @@ class ExpenseSplitServiceTest {
     assertThat(split.getSettled()).isFalse();
     assertThat(split.getSettledAt()).isNull();
   }
+
+  // region BY_ITEM — unequal shares of one product
+
+  /** One 10.00 item on the expense, shared by the owner and a friend. */
+  private ExpenseItem singleItem(UUID itemId, Expense expense, BigDecimal price) {
+    return ExpenseItem.builder()
+        .id(itemId)
+        .expense(expense)
+        .name("Steak")
+        .price(price)
+        .quantity(BigDecimal.ONE)
+        .build();
+  }
+
+  private void stubByItem(ExpenseItem item) {
+    given(expenseRepository.findByIdAndUser_Id(expenseId, userId))
+        .willReturn(Optional.of(item.getExpense()));
+    given(expenseSplitRepository.existsByExpenseId(expenseId)).willReturn(false);
+    given(friendshipService.areFriends(userId, friendId)).willReturn(true);
+    given(expenseItemRepository.findByExpenseId(expenseId)).willReturn(List.of(item));
+  }
+
+  /** Only needed on the paths that actually get as far as building splits. */
+  private void stubUserLookup() {
+    given(userRepository.getReferenceById(any()))
+        .willAnswer(
+            inv -> {
+              User u = new User();
+              u.setId(inv.getArgument(0));
+              return u;
+            });
+  }
+
+  @Test
+  void should_split_one_item_unequally_when_explicit_shares_are_given() {
+    Expense expense = createExpense(null);
+    UUID itemId = UUID.randomUUID();
+    ExpenseItem item = singleItem(itemId, expense, BigDecimal.valueOf(10));
+
+    stubByItem(item);
+    stubUserLookup();
+    given(expenseSplitRepository.saveAll(anyList())).willAnswer(inv -> inv.getArgument(0));
+    given(expenseItemSplitRepository.saveAll(anyList())).willAnswer(inv -> inv.getArgument(0));
+    given(expenseMapper.toExpenseSplitResponse(any())).willReturn(dummyResponse());
+
+    // Not 5/5: the friend ate most of it.
+    CreateExpenseSplitRequest request =
+        new CreateExpenseSplitRequest(
+            ExpenseSplitType.BY_ITEM,
+            List.of(new SplitParticipant(friendId, null)),
+            List.of(
+                new ItemSplitAssignment(
+                    itemId,
+                    null,
+                    List.of(
+                        new ItemShare(userId, BigDecimal.valueOf(2.50)),
+                        new ItemShare(friendId, BigDecimal.valueOf(7.50))))));
+
+    expenseSplitService.createSplit(expenseId, request, userId);
+
+    verify(expenseItemSplitRepository).saveAll(itemSplitsCaptor.capture());
+    List<ExpenseItemSplit> itemSplits = itemSplitsCaptor.getValue();
+    // The per-product share is now persisted, not recomputed as an equal division.
+    assertThat(
+            itemSplits.stream()
+                .filter(s -> s.getUser().getId().equals(friendId))
+                .findFirst()
+                .orElseThrow()
+                .getAmount())
+        .isEqualByComparingTo("7.50");
+
+    verify(expenseSplitRepository).saveAll(splitsCaptor.capture());
+    List<ExpenseSplit> splits = splitsCaptor.getValue();
+    assertThat(
+            splits.stream()
+                .filter(s -> s.getUser().getId().equals(friendId))
+                .findFirst()
+                .orElseThrow()
+                .getAmount())
+        .isEqualByComparingTo("7.50");
+  }
+
+  @Test
+  void should_throw_when_item_shares_do_not_add_up_to_the_item_total() {
+    Expense expense = createExpense(null);
+    UUID itemId = UUID.randomUUID();
+    ExpenseItem item = singleItem(itemId, expense, BigDecimal.valueOf(10));
+
+    stubByItem(item);
+
+    CreateExpenseSplitRequest request =
+        new CreateExpenseSplitRequest(
+            ExpenseSplitType.BY_ITEM,
+            List.of(new SplitParticipant(friendId, null)),
+            List.of(
+                new ItemSplitAssignment(
+                    itemId,
+                    null,
+                    List.of(
+                        new ItemShare(userId, BigDecimal.valueOf(2)),
+                        new ItemShare(friendId, BigDecimal.valueOf(3))))));
+
+    assertThatThrownBy(() -> expenseSplitService.createSplit(expenseId, request, userId))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("add up to");
+  }
+
+  @Test
+  void should_still_split_equally_when_only_user_ids_are_given() {
+    // Older clients send userIds and must keep working.
+    Expense expense = createExpense(null);
+    UUID itemId = UUID.randomUUID();
+    ExpenseItem item = singleItem(itemId, expense, BigDecimal.valueOf(10));
+
+    stubByItem(item);
+    stubUserLookup();
+    given(expenseSplitRepository.saveAll(anyList())).willAnswer(inv -> inv.getArgument(0));
+    given(expenseItemSplitRepository.saveAll(anyList())).willAnswer(inv -> inv.getArgument(0));
+    given(expenseMapper.toExpenseSplitResponse(any())).willReturn(dummyResponse());
+
+    CreateExpenseSplitRequest request =
+        new CreateExpenseSplitRequest(
+            ExpenseSplitType.BY_ITEM,
+            List.of(new SplitParticipant(friendId, null)),
+            List.of(new ItemSplitAssignment(itemId, List.of(userId, friendId), null)));
+
+    expenseSplitService.createSplit(expenseId, request, userId);
+
+    verify(expenseItemSplitRepository).saveAll(itemSplitsCaptor.capture());
+    assertThat(itemSplitsCaptor.getValue())
+        .allSatisfy(s -> assertThat(s.getAmount()).isEqualByComparingTo("5.00"));
+  }
+
+  // endregion
 
   @Test
   void should_refuse_to_unsettle_a_split_cleared_by_a_settle_up() {

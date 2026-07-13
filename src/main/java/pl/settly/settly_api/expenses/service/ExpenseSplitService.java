@@ -5,6 +5,7 @@ import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -211,7 +212,11 @@ public class ExpenseSplitService {
         for (var assignment : createExpenseSplitRequest.itemAssignments()) {
           ExpenseItem item = itemMap.get(assignment.expenseItemId());
 
-          for (UUID assignedUserId : assignment.userIds()) {
+          List<UUID> assignedUserIds = assignment.assignedUserIds();
+          if (assignedUserIds.isEmpty()) {
+            throw new IllegalArgumentException("Each item must be assigned to at least one person");
+          }
+          for (UUID assignedUserId : assignedUserIds) {
             if (!assignedUserId.equals(userId) && !participantIds.contains(assignedUserId)) {
               throw new IllegalArgumentException(
                   "User " + assignedUserId + " is not a participant in this split");
@@ -220,23 +225,23 @@ public class ExpenseSplitService {
 
           BigDecimal itemTotal =
               item.getPrice().multiply(item.getQuantity()).setScale(2, RoundingMode.HALF_UP);
-          int assigneeCount = assignment.userIds().size();
-          BigDecimal perPerson =
-              itemTotal.divide(BigDecimal.valueOf(assigneeCount), 2, RoundingMode.HALF_UP);
-          BigDecimal itemRemainder =
-              itemTotal.subtract(perPerson.multiply(BigDecimal.valueOf(assigneeCount)));
 
-          boolean first = true;
-          for (UUID assignedUserId : assignment.userIds()) {
-            BigDecimal amount = first ? perPerson.add(itemRemainder) : perPerson;
-            first = false;
+          // Either the caller gave each person's share explicitly (unequal split of the same
+          // product), or we divide the item equally and absorb the rounding remainder in the
+          // first share so the parts add up to the item total exactly.
+          Map<UUID, BigDecimal> shareByUser =
+              assignment.hasExplicitShares()
+                  ? explicitShares(assignment, itemTotal, item)
+                  : equalShares(assignedUserIds, itemTotal);
 
-            userTotals.merge(assignedUserId, amount, BigDecimal::add);
+          for (Map.Entry<UUID, BigDecimal> share : shareByUser.entrySet()) {
+            userTotals.merge(share.getKey(), share.getValue(), BigDecimal::add);
 
             itemSplits.add(
                 ExpenseItemSplit.builder()
                     .expenseItem(item)
-                    .user(userRepository.getReferenceById(assignedUserId))
+                    .user(userRepository.getReferenceById(share.getKey()))
+                    .amount(share.getValue())
                     .build());
           }
         }
@@ -392,6 +397,53 @@ public class ExpenseSplitService {
     expenseSplitRepository.saveAll(targets);
 
     return targets.stream().map(expenseMapper::toExpenseSplitResponse).toList();
+  }
+
+  /**
+   * Splits an item equally between its assignees. The first share absorbs the rounding remainder so
+   * the parts always add up to the item total exactly.
+   */
+  private static Map<UUID, BigDecimal> equalShares(List<UUID> userIds, BigDecimal itemTotal) {
+    int count = userIds.size();
+    BigDecimal perPerson = itemTotal.divide(BigDecimal.valueOf(count), 2, RoundingMode.HALF_UP);
+    BigDecimal remainder = itemTotal.subtract(perPerson.multiply(BigDecimal.valueOf(count)));
+
+    Map<UUID, BigDecimal> shares = new LinkedHashMap<>();
+    boolean first = true;
+    for (UUID id : userIds) {
+      shares.merge(id, first ? perPerson.add(remainder) : perPerson, BigDecimal::add);
+      first = false;
+    }
+    return shares;
+  }
+
+  /**
+   * Uses the caller's explicit per-person amounts for an item. They must add up to the item total —
+   * otherwise the sum of everyone's shares would silently disagree with what the expense says the
+   * product cost.
+   */
+  private static Map<UUID, BigDecimal> explicitShares(
+      ItemSplitAssignment assignment, BigDecimal itemTotal, ExpenseItem item) {
+    Map<UUID, BigDecimal> shares = new LinkedHashMap<>();
+    for (ItemShare share : assignment.shares()) {
+      shares.merge(share.userId(), share.amount(), BigDecimal::add);
+    }
+
+    BigDecimal sum =
+        shares.values().stream()
+            .reduce(BigDecimal.ZERO, BigDecimal::add)
+            .setScale(2, RoundingMode.HALF_UP);
+
+    if (sum.compareTo(itemTotal) != 0) {
+      throw new IllegalArgumentException(
+          "Shares for item '"
+              + item.getName()
+              + "' add up to "
+              + sum
+              + " but the item costs "
+              + itemTotal);
+    }
+    return shares;
   }
 
   private void applySettled(ExpenseSplit split, boolean settled) {

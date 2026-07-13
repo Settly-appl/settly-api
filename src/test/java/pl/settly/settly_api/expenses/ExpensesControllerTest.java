@@ -419,7 +419,11 @@ class ExpensesControllerTest {
     String itemId = "44444444-4444-4444-4444-444444444444";
     ExpenseItemSplitUserResponse splitUserResponse =
         new ExpenseItemSplitUserResponse(
-            UUID.fromString(USER_ID), "test_user", "Test User", "https://avatar.example/test.png");
+            UUID.fromString(USER_ID),
+            "test_user",
+            "Test User",
+            "https://avatar.example/test.png",
+            java.math.BigDecimal.valueOf(7.50));
 
     given(expenseService.getItemSplitUsers(UUID.fromString(itemId), UUID.fromString(USER_ID)))
         .willReturn(List.of(splitUserResponse));
