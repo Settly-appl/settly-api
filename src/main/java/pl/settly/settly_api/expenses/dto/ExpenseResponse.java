@@ -5,6 +5,20 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
 
+/**
+ * An expense as seen by the requesting user.
+ *
+ * <p>The settlement fields are <em>viewer-relative</em> and are populated by the service (MapStruct
+ * leaves them null), so the list can render settled state without an N+1 per expense:
+ *
+ * <ul>
+ *   <li>{@code splitCount} — participants owing the owner (the owner's own split row is excluded).
+ *       0 means a personal expense: nothing to settle.
+ *   <li>{@code settledCount} — how many of those have been settled.
+ *   <li>{@code settled} — if the viewer owns the expense: every participant has settled. If the
+ *       viewer is a participant: their own split is settled.
+ * </ul>
+ */
 public record ExpenseResponse(
     UUID id,
     UUID userId,
@@ -16,4 +30,26 @@ public record ExpenseResponse(
     BigDecimal totalAmount,
     Boolean isScanned,
     LocalDate date,
-    Instant createdAt) {}
+    Instant createdAt,
+    Integer splitCount,
+    Integer settledCount,
+    Boolean settled) {
+
+  public ExpenseResponse withSettlement(int splitCount, int settledCount, boolean settled) {
+    return new ExpenseResponse(
+        id,
+        userId,
+        projectId,
+        shop,
+        note,
+        category,
+        currency,
+        totalAmount,
+        isScanned,
+        date,
+        createdAt,
+        splitCount,
+        settledCount,
+        settled);
+  }
+}

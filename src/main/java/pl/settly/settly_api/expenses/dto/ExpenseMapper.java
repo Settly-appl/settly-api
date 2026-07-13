@@ -19,6 +19,10 @@ public interface ExpenseMapper {
   @Mapping(source = "user.id", target = "userId")
   @Mapping(source = "project.id", target = "projectId")
   @Mapping(source = "date", target = "date")
+  // Viewer-relative; filled in by ExpenseService.withSettlement (needs the caller's id).
+  @Mapping(target = "splitCount", ignore = true)
+  @Mapping(target = "settledCount", ignore = true)
+  @Mapping(target = "settled", ignore = true)
   ExpenseResponse toExpenseResponse(Expense expense);
 
   @Mapping(source = "expense.id", target = "expenseId")

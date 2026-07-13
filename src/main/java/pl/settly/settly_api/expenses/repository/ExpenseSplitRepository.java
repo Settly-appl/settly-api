@@ -1,5 +1,6 @@
 package pl.settly.settly_api.expenses.repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -13,9 +14,19 @@ public interface ExpenseSplitRepository extends JpaRepository<ExpenseSplit, UUID
 
   List<ExpenseSplit> findByExpenseId(UUID expenseId);
 
+  /**
+   * All splits for a page of expenses in one query, so the list can report settled state without an
+   * N+1. Fetches the owner join too, since the caller needs to tell the owner's row apart.
+   */
+  @Query("SELECT s FROM ExpenseSplit s JOIN FETCH s.expense e WHERE e.id IN :expenseIds")
+  List<ExpenseSplit> findByExpenseIdIn(@Param("expenseIds") Collection<UUID> expenseIds);
+
   boolean existsByExpenseIdAndUserId(UUID expenseId, UUID userId);
 
   List<ExpenseSplit> findByUserIdAndSettledFalse(UUID userId);
+
+  /** Splits cleared by a given settle-up — used to reverse it. */
+  List<ExpenseSplit> findBySettledByDebtId(UUID debtId);
 
   /** Unsettled amounts other users owe the given user (their splits on the user's expenses). */
   @Query(

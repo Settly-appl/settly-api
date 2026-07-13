@@ -18,6 +18,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.UuidGenerator;
 import pl.settly.settly_api.auth.user.model.User;
+import pl.settly.settly_api.debts.model.Debt;
 
 @Entity
 @Table(name = "expense_splits")
@@ -48,4 +49,14 @@ public class ExpenseSplit {
 
   @Column(name = "settled_at")
   private Instant settledAt;
+
+  /**
+   * The settle-up that settled this split, if any. Set only when a bulk settle-up cleared it;
+   * splits settled one-by-one leave this null. A split settled by a settle-up must not be unsettled
+   * on its own — that would resurrect a balance for money that was actually paid. Reverse the whole
+   * settlement instead.
+   */
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "settled_by_debt_id")
+  private Debt settledByDebt;
 }

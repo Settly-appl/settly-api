@@ -122,25 +122,60 @@ public class DebtService {
     }
 
     Instant now = Instant.now();
+
+    // Persist the payment record first so the splits can point at it.
+    Debt debt =
+        debtRepository.save(
+            Debt.builder()
+                .fromUser(userRepository.getReferenceById(debtorId))
+                .toUser(userRepository.getReferenceById(creditorId))
+                .project(projectId == null ? null : projectRepository.getReferenceById(projectId))
+                .amount(net)
+                .settled(true)
+                .settledAt(now)
+                .build());
+
     List<ExpenseSplit> toSettle = new ArrayList<>(debtorOwes);
     toSettle.addAll(creditorOwes);
     for (ExpenseSplit split : toSettle) {
       split.setSettled(true);
       split.setSettledAt(now);
+      // Stamp the settlement that covered this split. Unsettling it individually
+      // afterwards would claim the money is owed again even though it was paid,
+      // so that is refused — the whole settle-up has to be undone instead.
+      split.setSettledByDebt(debt);
     }
     expenseSplitRepository.saveAll(toSettle);
 
-    Debt debt =
-        Debt.builder()
-            .fromUser(userRepository.getReferenceById(debtorId))
-            .toUser(userRepository.getReferenceById(creditorId))
-            .project(projectId == null ? null : projectRepository.getReferenceById(projectId))
-            .amount(net)
-            .settled(true)
-            .settledAt(now)
-            .build();
+    return toResponse(debt);
+  }
 
-    return toResponse(debtRepository.save(debt));
+  /**
+   * Reverses a settle-up: unsettles every split it covered and deletes the payment record, so the
+   * balance and the audit trail stay in agreement. Only the two people involved may undo it.
+   */
+  @Transactional
+  public void undoSettleUp(UUID debtId, UUID userId) {
+    Debt debt =
+        debtRepository
+            .findById(debtId)
+            .orElseThrow(() -> new ResourceNotFoundException("Settlement does not exist"));
+
+    boolean involved =
+        debt.getFromUser().getId().equals(userId) || debt.getToUser().getId().equals(userId);
+    if (!involved) {
+      throw new ResourceNotFoundException("Settlement does not exist");
+    }
+
+    List<ExpenseSplit> covered = expenseSplitRepository.findBySettledByDebtId(debtId);
+    for (ExpenseSplit split : covered) {
+      split.setSettled(false);
+      split.setSettledAt(null);
+      split.setSettledByDebt(null);
+    }
+    expenseSplitRepository.saveAll(covered);
+
+    debtRepository.delete(debt);
   }
 
   private static BigDecimal sumAmounts(List<ExpenseSplit> splits) {

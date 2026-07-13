@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pl.settly.settly_api.auth.user.repository.UserRepository;
 import pl.settly.settly_api.common.exception.ResourceNotFoundException;
+import pl.settly.settly_api.common.exception.SettlementLockedException;
 import pl.settly.settly_api.expenses.dto.*;
 import pl.settly.settly_api.expenses.model.Expense;
 import pl.settly.settly_api.expenses.model.ExpenseItem;
@@ -314,9 +315,25 @@ public class ExpenseSplitService {
 
   @Transactional
   public ExpenseSplitResponse settleSplit(UUID expenseId, UUID splitId, UUID userId) {
-    expenseRepository
-        .findByIdAndUser_Id(expenseId, userId)
-        .orElseThrow(() -> new ResourceNotFoundException("Expense does not exist"));
+    return setSplitSettled(expenseId, splitId, userId, true);
+  }
+
+  public ExpenseSplitResponse unsettleSplit(UUID expenseId, UUID splitId, UUID userId) {
+    return setSplitSettled(expenseId, splitId, userId, false);
+  }
+
+  /**
+   * Marks one split settled/unsettled. Either side may do it: the expense owner (the creditor,
+   * confirming they were paid) or the split's own user (the debtor, recording that they paid).
+   * Idempotent — re-settling an already-settled split is a no-op rather than an error, so a stray
+   * double swipe doesn't surface a failure.
+   */
+  private ExpenseSplitResponse setSplitSettled(
+      UUID expenseId, UUID splitId, UUID userId, boolean settled) {
+    Expense expense =
+        expenseRepository
+            .findById(expenseId)
+            .orElseThrow(() -> new ResourceNotFoundException("Expense does not exist"));
 
     ExpenseSplit split =
         expenseSplitRepository
@@ -324,18 +341,69 @@ public class ExpenseSplitService {
             .filter(s -> s.getExpense().getId().equals(expenseId))
             .orElseThrow(() -> new ResourceNotFoundException("Split does not exist"));
 
-    if (split.getUser().getId().equals(userId)) {
-      throw new IllegalArgumentException("Cannot settle your own split");
+    UUID ownerId = expense.getUser().getId();
+
+    // The owner's own row is their own share — it is settled by definition and never toggled.
+    if (split.getUser().getId().equals(ownerId)) {
+      throw new IllegalArgumentException("The owner's own share is not settleable");
     }
 
-    if (split.getSettled()) {
-      throw new IllegalArgumentException("Split is already settled");
+    boolean isOwner = ownerId.equals(userId);
+    boolean isOwnSplit = split.getUser().getId().equals(userId);
+    if (!isOwner && !isOwnSplit) {
+      throw new ResourceNotFoundException("Split does not exist");
     }
 
-    split.setSettled(true);
-    split.setSettledAt(Instant.now());
-
+    applySettled(split, settled);
     return expenseMapper.toExpenseSplitResponse(expenseSplitRepository.save(split));
+  }
+
+  /**
+   * Settles (or unsettles) a whole expense in one go. The owner clears every participant's split; a
+   * participant clears only their own share. Idempotent.
+   */
+  @Transactional
+  public List<ExpenseSplitResponse> setExpenseSettled(
+      UUID expenseId, UUID userId, boolean settled) {
+    Expense expense =
+        expenseRepository
+            .findById(expenseId)
+            .orElseThrow(() -> new ResourceNotFoundException("Expense does not exist"));
+
+    if (expenseAccessService.hasNoAccessToExpense(expenseId, userId)) {
+      throw new ResourceNotFoundException("Expense does not exist");
+    }
+
+    UUID ownerId = expense.getUser().getId();
+    boolean isOwner = ownerId.equals(userId);
+
+    List<ExpenseSplit> targets =
+        expenseSplitRepository.findByExpenseId(expenseId).stream()
+            // never the owner's own row; and a participant may only touch their own
+            .filter(s -> !s.getUser().getId().equals(ownerId))
+            .filter(s -> isOwner || s.getUser().getId().equals(userId))
+            .toList();
+
+    if (targets.isEmpty()) {
+      throw new ResourceNotFoundException("Nothing to settle on this expense");
+    }
+
+    targets.forEach(s -> applySettled(s, settled));
+    expenseSplitRepository.saveAll(targets);
+
+    return targets.stream().map(expenseMapper::toExpenseSplitResponse).toList();
+  }
+
+  private void applySettled(ExpenseSplit split, boolean settled) {
+    // A split cleared by a bulk settle-up must not be unsettled on its own: the money really did
+    // change hands, so resurrecting the balance here would contradict the recorded payment. The
+    // whole settlement has to be reversed instead (DELETE /debts/{id}).
+    if (!settled && split.getSettledByDebt() != null) {
+      throw new SettlementLockedException(
+          "This share was settled as part of a settle-up. Undo that settlement instead.");
+    }
+    split.setSettled(settled);
+    split.setSettledAt(settled ? Instant.now() : null);
   }
 
   public List<ExpenseSplitResponse> getUnsettledSplits(UUID userId) {

@@ -73,8 +73,10 @@ class ExpensesServiceTest {
             LocalDate.now(),
             projectId);
     User user = new User();
+    user.setId(userId);
     Expense expense = new Expense();
     Expense savedExpense = new Expense();
+    savedExpense.setUser(user); // expense.user is a non-null FK in production
     ExpenseResponse expectedResponse = createDefaultResponse();
 
     given(expenseMapper.toExpense(request)).willReturn(expense);
@@ -116,11 +118,12 @@ class ExpensesServiceTest {
 
   @Test
   void should_return_expense_when_found() {
-    Expense expense = new Expense();
+    Expense expense = ownedExpense();
     ExpenseResponse expectedResponse = createDefaultResponse();
 
     given(expenseAccessService.hasNoAccessToExpense(expenseId, userId)).willReturn(false);
     given(expenseRepository.findById(expenseId)).willReturn(Optional.of(expense));
+    given(expenseSplitRepository.findByExpenseId(expenseId)).willReturn(List.of());
     given(expenseMapper.toExpenseResponse(expense)).willReturn(expectedResponse);
 
     ExpenseResponse response = expenseService.getExpense(expenseId, userId);
@@ -156,13 +159,14 @@ class ExpensesServiceTest {
     existingExpense.setId(expenseId);
     existingExpense.setCategory("transport");
     existingExpense.setCurrency("PLN");
-    Expense savedExpense = new Expense();
+    Expense savedExpense = ownedExpense();
     ExpenseResponse expectedResponse = createDefaultResponse();
 
     given(expenseRepository.findByIdAndUser_Id(expenseId, userId))
         .willReturn(Optional.of(existingExpense));
     given(projectAccessService.isMember(projectId, userId)).willReturn(true);
     given(expenseRepository.save(existingExpense)).willReturn(savedExpense);
+    given(expenseSplitRepository.findByExpenseId(expenseId)).willReturn(List.of());
     given(expenseMapper.toExpenseResponse(savedExpense)).willReturn(expectedResponse);
 
     ExpenseResponse response = expenseService.updateExpense(expenseId, userId, request);
@@ -208,7 +212,8 @@ class ExpensesServiceTest {
     // Arrange
     Pageable pageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "createdAt"));
     String category = "FOOD";
-    Expense expense = new Expense();
+    Expense expense = ownedExpense();
+    expense.setId(expenseId);
     ExpenseResponse expectedResponse = createDefaultResponse();
 
     // Tworzymy stronę wyników
@@ -216,6 +221,8 @@ class ExpensesServiceTest {
 
     // Mockujemy wywołanie repozytorium (używamy Twojej nowej metody findExpenses)
     given(expenseRepository.findExpenses(userId, category, pageable)).willReturn(page);
+    // Splits for the whole page are fetched in one batch (no N+1).
+    given(expenseSplitRepository.findByExpenseIdIn(List.of(expenseId))).willReturn(List.of());
 
     // Ważne: map() w Page używa mappera dla każdego elementu
     given(expenseMapper.toExpenseResponse(expense)).willReturn(expectedResponse);
@@ -479,6 +486,15 @@ class ExpensesServiceTest {
 
   // endregion
 
+  /** An expense owned by userId — expense.user is a non-null FK in production. */
+  private Expense ownedExpense() {
+    User owner = new User();
+    owner.setId(userId);
+    Expense expense = new Expense();
+    expense.setUser(owner);
+    return expense;
+  }
+
   // Helper do tworzenia powtarzalnych obiektów response z nowymi polami
   private ExpenseResponse createDefaultResponse() {
     return new ExpenseResponse(
@@ -492,6 +508,9 @@ class ExpensesServiceTest {
         BigDecimal.valueOf(100.00),
         false,
         LocalDate.now(),
-        Instant.now());
+        Instant.now(),
+        0,
+        0,
+        false);
   }
 }

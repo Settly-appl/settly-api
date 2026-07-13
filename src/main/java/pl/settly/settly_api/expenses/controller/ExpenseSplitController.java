@@ -62,6 +62,31 @@ public class ExpenseSplitController {
             expenseId, splitId, UUID.fromString(authentication.getName())));
   }
 
+  @PatchMapping("/{expenseId}/splits/{splitId}/unsettle")
+  public ResponseEntity<ExpenseSplitResponse> unsettleSplit(
+      @PathVariable UUID expenseId, @PathVariable UUID splitId, Authentication authentication) {
+    return ResponseEntity.ok(
+        expenseSplitService.unsettleSplit(
+            expenseId, splitId, UUID.fromString(authentication.getName())));
+  }
+
+  /** Settle a whole expense: the owner clears everyone, a participant clears their own share. */
+  @PatchMapping("/{expenseId}/settle")
+  public ResponseEntity<List<ExpenseSplitResponse>> settleExpense(
+      @PathVariable UUID expenseId, Authentication authentication) {
+    return ResponseEntity.ok(
+        expenseSplitService.setExpenseSettled(
+            expenseId, UUID.fromString(authentication.getName()), true));
+  }
+
+  @PatchMapping("/{expenseId}/unsettle")
+  public ResponseEntity<List<ExpenseSplitResponse>> unsettleExpense(
+      @PathVariable UUID expenseId, Authentication authentication) {
+    return ResponseEntity.ok(
+        expenseSplitService.setExpenseSettled(
+            expenseId, UUID.fromString(authentication.getName()), false));
+  }
+
   @GetMapping("/splits/unsettled")
   public ResponseEntity<List<ExpenseSplitResponse>> getUnsettledSplits(
       Authentication authentication) {

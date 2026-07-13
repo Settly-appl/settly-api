@@ -9,7 +9,9 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -188,7 +190,67 @@ class DebtServiceTest {
     assertThat(result.amount()).isEqualByComparingTo("50");
     assertThat(result.fromUserId()).isEqualTo(friendId);
     assertThat(result.toUserId()).isEqualTo(userId);
+
+    // Each cleared split remembers the settlement that paid it, so it cannot later
+    // be unsettled on its own and contradict this payment record.
+    assertThat(split1.getSettledByDebt()).isSameAs(saved);
+    assertThat(split2.getSettledByDebt()).isSameAs(saved);
   }
+
+  // region undoSettleUp
+
+  @Test
+  void should_undo_settle_up_by_unsettling_its_splits_and_deleting_the_record() {
+    UUID debtId = UUID.randomUUID();
+    Debt debt =
+        Debt.builder()
+            .id(debtId)
+            .fromUser(user(friendId, "alice"))
+            .toUser(user(userId, "me"))
+            .amount(BigDecimal.valueOf(50))
+            .settled(true)
+            .settledAt(Instant.now())
+            .build();
+
+    ExpenseSplit covered =
+        ExpenseSplit.builder()
+            .expense(Expense.builder().build())
+            .amount(BigDecimal.valueOf(50))
+            .settled(true)
+            .settledAt(Instant.now())
+            .settledByDebt(debt)
+            .build();
+
+    given(debtRepository.findById(debtId)).willReturn(Optional.of(debt));
+    given(expenseSplitRepository.findBySettledByDebtId(debtId)).willReturn(List.of(covered));
+
+    debtService.undoSettleUp(debtId, userId);
+
+    assertThat(covered.getSettled()).isFalse();
+    assertThat(covered.getSettledAt()).isNull();
+    assertThat(covered.getSettledByDebt()).isNull();
+    verify(expenseSplitRepository).saveAll(anyList());
+    verify(debtRepository).delete(debt);
+  }
+
+  @Test
+  void should_throw_when_undoing_a_settlement_you_are_not_part_of() {
+    UUID debtId = UUID.randomUUID();
+    Debt debt =
+        Debt.builder()
+            .id(debtId)
+            .fromUser(user(friendId, "alice"))
+            .toUser(user(userId, "me"))
+            .amount(BigDecimal.valueOf(50))
+            .build();
+
+    given(debtRepository.findById(debtId)).willReturn(Optional.of(debt));
+
+    assertThatThrownBy(() -> debtService.undoSettleUp(debtId, UUID.randomUUID()))
+        .isInstanceOf(ResourceNotFoundException.class);
+  }
+
+  // endregion
 
   @Test
   void should_settle_up_scoped_to_project() {

@@ -676,22 +676,25 @@ class ExpenseSplitServiceTest {
 
   // region settleSplit
 
+  /** Builds a friend's unsettled split on the owner's expense. */
+  private ExpenseSplit friendSplitOn(Expense expense, UUID splitId, boolean settled) {
+    return ExpenseSplit.builder()
+        .id(splitId)
+        .expense(expense)
+        .user(createFriendUser(friendId))
+        .settled(settled)
+        .settledAt(settled ? Instant.now() : null)
+        .amount(BigDecimal.valueOf(50))
+        .build();
+  }
+
   @Test
-  void should_settle_split_successfully() {
+  void should_settle_split_successfully_as_owner() {
     Expense expense = createExpense(BigDecimal.valueOf(100));
     UUID splitId = UUID.randomUUID();
-    User friend = createFriendUser(friendId);
+    ExpenseSplit split = friendSplitOn(expense, splitId, false);
 
-    ExpenseSplit split =
-        ExpenseSplit.builder()
-            .id(splitId)
-            .expense(expense)
-            .user(friend)
-            .settled(false)
-            .amount(BigDecimal.valueOf(50))
-            .build();
-
-    given(expenseRepository.findByIdAndUser_Id(expenseId, userId)).willReturn(Optional.of(expense));
+    given(expenseRepository.findById(expenseId)).willReturn(Optional.of(expense));
     given(expenseSplitRepository.findById(splitId)).willReturn(Optional.of(split));
     given(expenseSplitRepository.save(split)).willReturn(split);
     given(expenseMapper.toExpenseSplitResponse(split)).willReturn(dummyResponse());
@@ -705,7 +708,37 @@ class ExpenseSplitServiceTest {
   }
 
   @Test
-  void should_throw_when_settling_own_split() {
+  void should_let_the_debtor_settle_their_own_split() {
+    // The participant records that they paid — allowed, they are the split's user.
+    Expense expense = createExpense(BigDecimal.valueOf(100));
+    UUID splitId = UUID.randomUUID();
+    ExpenseSplit split = friendSplitOn(expense, splitId, false);
+
+    given(expenseRepository.findById(expenseId)).willReturn(Optional.of(expense));
+    given(expenseSplitRepository.findById(splitId)).willReturn(Optional.of(split));
+    given(expenseSplitRepository.save(split)).willReturn(split);
+    given(expenseMapper.toExpenseSplitResponse(split)).willReturn(dummyResponse());
+
+    expenseSplitService.settleSplit(expenseId, splitId, friendId);
+
+    assertThat(split.getSettled()).isTrue();
+  }
+
+  @Test
+  void should_throw_when_a_stranger_settles_the_split() {
+    Expense expense = createExpense(BigDecimal.valueOf(100));
+    UUID splitId = UUID.randomUUID();
+    ExpenseSplit split = friendSplitOn(expense, splitId, false);
+
+    given(expenseRepository.findById(expenseId)).willReturn(Optional.of(expense));
+    given(expenseSplitRepository.findById(splitId)).willReturn(Optional.of(split));
+
+    assertThatThrownBy(() -> expenseSplitService.settleSplit(expenseId, splitId, UUID.randomUUID()))
+        .isInstanceOf(ResourceNotFoundException.class);
+  }
+
+  @Test
+  void should_throw_when_settling_the_owners_own_share() {
     Expense expense = createExpense(BigDecimal.valueOf(100));
     UUID splitId = UUID.randomUUID();
     User owner = new User();
@@ -714,35 +747,65 @@ class ExpenseSplitServiceTest {
     ExpenseSplit split =
         ExpenseSplit.builder().id(splitId).expense(expense).user(owner).settled(true).build();
 
-    given(expenseRepository.findByIdAndUser_Id(expenseId, userId)).willReturn(Optional.of(expense));
+    given(expenseRepository.findById(expenseId)).willReturn(Optional.of(expense));
     given(expenseSplitRepository.findById(splitId)).willReturn(Optional.of(split));
 
     assertThatThrownBy(() -> expenseSplitService.settleSplit(expenseId, splitId, userId))
         .isInstanceOf(IllegalArgumentException.class)
-        .hasMessage("Cannot settle your own split");
+        .hasMessage("The owner's own share is not settleable");
   }
 
   @Test
-  void should_throw_when_split_already_settled() {
+  void should_be_idempotent_when_settling_an_already_settled_split() {
+    // A stray second swipe must not surface an error.
     Expense expense = createExpense(BigDecimal.valueOf(100));
     UUID splitId = UUID.randomUUID();
-    User friend = createFriendUser(friendId);
+    ExpenseSplit split = friendSplitOn(expense, splitId, true);
 
-    ExpenseSplit split =
-        ExpenseSplit.builder()
-            .id(splitId)
-            .expense(expense)
-            .user(friend)
-            .settled(true)
-            .settledAt(Instant.now())
-            .build();
+    given(expenseRepository.findById(expenseId)).willReturn(Optional.of(expense));
+    given(expenseSplitRepository.findById(splitId)).willReturn(Optional.of(split));
+    given(expenseSplitRepository.save(split)).willReturn(split);
+    given(expenseMapper.toExpenseSplitResponse(split)).willReturn(dummyResponse());
 
-    given(expenseRepository.findByIdAndUser_Id(expenseId, userId)).willReturn(Optional.of(expense));
+    expenseSplitService.settleSplit(expenseId, splitId, userId);
+
+    assertThat(split.getSettled()).isTrue();
+  }
+
+  @Test
+  void should_unsettle_split_and_clear_settled_at() {
+    Expense expense = createExpense(BigDecimal.valueOf(100));
+    UUID splitId = UUID.randomUUID();
+    ExpenseSplit split = friendSplitOn(expense, splitId, true);
+
+    given(expenseRepository.findById(expenseId)).willReturn(Optional.of(expense));
+    given(expenseSplitRepository.findById(splitId)).willReturn(Optional.of(split));
+    given(expenseSplitRepository.save(split)).willReturn(split);
+    given(expenseMapper.toExpenseSplitResponse(split)).willReturn(dummyResponse());
+
+    expenseSplitService.unsettleSplit(expenseId, splitId, userId);
+
+    assertThat(split.getSettled()).isFalse();
+    assertThat(split.getSettledAt()).isNull();
+  }
+
+  @Test
+  void should_refuse_to_unsettle_a_split_cleared_by_a_settle_up() {
+    // The money really changed hands in that settle-up; unsettling this one share
+    // would resurrect a balance for it. The whole settlement must be undone instead.
+    Expense expense = createExpense(BigDecimal.valueOf(100));
+    UUID splitId = UUID.randomUUID();
+    ExpenseSplit split = friendSplitOn(expense, splitId, true);
+    split.setSettledByDebt(pl.settly.settly_api.debts.model.Debt.builder().build());
+
+    given(expenseRepository.findById(expenseId)).willReturn(Optional.of(expense));
     given(expenseSplitRepository.findById(splitId)).willReturn(Optional.of(split));
 
-    assertThatThrownBy(() -> expenseSplitService.settleSplit(expenseId, splitId, userId))
-        .isInstanceOf(IllegalArgumentException.class)
-        .hasMessage("Split is already settled");
+    assertThatThrownBy(() -> expenseSplitService.unsettleSplit(expenseId, splitId, userId))
+        .isInstanceOf(pl.settly.settly_api.common.exception.SettlementLockedException.class)
+        .hasMessageContaining("settle-up");
+
+    assertThat(split.getSettled()).isTrue(); // unchanged
   }
 
   @Test
@@ -750,12 +813,73 @@ class ExpenseSplitServiceTest {
     Expense expense = createExpense(BigDecimal.valueOf(100));
     UUID splitId = UUID.randomUUID();
 
-    given(expenseRepository.findByIdAndUser_Id(expenseId, userId)).willReturn(Optional.of(expense));
+    given(expenseRepository.findById(expenseId)).willReturn(Optional.of(expense));
     given(expenseSplitRepository.findById(splitId)).willReturn(Optional.empty());
 
     assertThatThrownBy(() -> expenseSplitService.settleSplit(expenseId, splitId, userId))
         .isInstanceOf(ResourceNotFoundException.class)
         .hasMessage("Split does not exist");
+  }
+
+  // endregion
+
+  // region setExpenseSettled (whole expense)
+
+  @Test
+  void should_settle_every_participant_when_owner_settles_the_expense() {
+    Expense expense = createExpense(BigDecimal.valueOf(100));
+    User owner = new User();
+    owner.setId(userId);
+
+    ExpenseSplit ownerShare =
+        ExpenseSplit.builder()
+            .id(UUID.randomUUID())
+            .expense(expense)
+            .user(owner)
+            .settled(true)
+            .build();
+    ExpenseSplit friendShare = friendSplitOn(expense, UUID.randomUUID(), false);
+
+    given(expenseRepository.findById(expenseId)).willReturn(Optional.of(expense));
+    given(expenseAccessService.hasNoAccessToExpense(expenseId, userId)).willReturn(false);
+    given(expenseSplitRepository.findByExpenseId(expenseId))
+        .willReturn(List.of(ownerShare, friendShare));
+    given(expenseMapper.toExpenseSplitResponse(friendShare)).willReturn(dummyResponse());
+
+    expenseSplitService.setExpenseSettled(expenseId, userId, true);
+
+    assertThat(friendShare.getSettled()).isTrue();
+    // The owner's own share is never toggled.
+    assertThat(ownerShare.getSettled()).isTrue();
+  }
+
+  @Test
+  void should_settle_only_own_share_when_participant_settles_the_expense() {
+    Expense expense = createExpense(BigDecimal.valueOf(100));
+    UUID otherFriendId = UUID.randomUUID();
+
+    ExpenseSplit myShare = friendSplitOn(expense, UUID.randomUUID(), false);
+    User other = createFriendUser(otherFriendId);
+    ExpenseSplit othersShare =
+        ExpenseSplit.builder()
+            .id(UUID.randomUUID())
+            .expense(expense)
+            .user(other)
+            .settled(false)
+            .amount(BigDecimal.valueOf(25))
+            .build();
+
+    given(expenseRepository.findById(expenseId)).willReturn(Optional.of(expense));
+    given(expenseAccessService.hasNoAccessToExpense(expenseId, friendId)).willReturn(false);
+    given(expenseSplitRepository.findByExpenseId(expenseId))
+        .willReturn(List.of(myShare, othersShare));
+    given(expenseMapper.toExpenseSplitResponse(myShare)).willReturn(dummyResponse());
+
+    expenseSplitService.setExpenseSettled(expenseId, friendId, true);
+
+    assertThat(myShare.getSettled()).isTrue();
+    // A participant must not settle anybody else's share.
+    assertThat(othersShare.getSettled()).isFalse();
   }
 
   // endregion

@@ -6,7 +6,9 @@ import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -46,5 +48,17 @@ public class DebtController {
   public ResponseEntity<List<DebtResponse>> getSettlementHistory(Authentication authentication) {
     return ResponseEntity.ok(
         debtService.getSettlementHistory(UUID.fromString(authentication.getName())));
+  }
+
+  /**
+   * Reverse a settle-up: unsettles every split it covered and removes the payment record. This is
+   * the supported way to undo a bulk settlement — individual splits it covered cannot be unsettled
+   * on their own.
+   */
+  @DeleteMapping("/debts/{debtId}")
+  public ResponseEntity<Void> undoSettleUp(
+      @PathVariable UUID debtId, Authentication authentication) {
+    debtService.undoSettleUp(debtId, UUID.fromString(authentication.getName()));
+    return ResponseEntity.noContent().build();
   }
 }

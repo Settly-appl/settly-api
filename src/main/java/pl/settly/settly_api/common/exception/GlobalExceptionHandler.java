@@ -20,6 +20,16 @@ public class GlobalExceptionHandler {
     return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
   }
 
+  /**
+   * 409 so the client can recognise this and offer "undo the settle-up" instead of a plain error.
+   */
+  @ExceptionHandler(SettlementLockedException.class)
+  public ResponseEntity<ErrorResponse> handleSettlementLocked(SettlementLockedException ex) {
+    ErrorResponse error =
+        new ErrorResponse(HttpStatus.CONFLICT.value(), ex.getMessage(), LocalDateTime.now());
+    return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
+  }
+
   @ExceptionHandler(IllegalArgumentException.class)
   public ResponseEntity<ErrorResponse> handleIllegalArgument(IllegalArgumentException ex) {
     ErrorResponse error =

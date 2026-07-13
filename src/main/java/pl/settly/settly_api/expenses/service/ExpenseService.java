@@ -1,7 +1,9 @@
 package pl.settly.settly_api.expenses.service;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -61,7 +63,8 @@ public class ExpenseService {
     expense.setUser(user);
     expense.setProject(resolveProject(request.projectId(), userId));
     Expense savedExpense = expenseRepository.save(expense);
-    return expenseMapper.toExpenseResponse(savedExpense);
+    // A brand-new expense has no splits yet.
+    return withSettlement(savedExpense, List.of(), userId);
   }
 
   /** Resolves the project for an expense, ensuring the user is a member of it. */
@@ -80,16 +83,66 @@ public class ExpenseService {
     if (expenseAccessService.hasNoAccessToExpense(expenseId, userId)) {
       throw new ResourceNotFoundException("Expense does not exist");
     }
-    return expenseRepository
-        .findById(expenseId)
-        .map(expenseMapper::toExpenseResponse)
-        .orElseThrow(() -> new ResourceNotFoundException("Expense does not exist"));
+    Expense expense =
+        expenseRepository
+            .findById(expenseId)
+            .orElseThrow(() -> new ResourceNotFoundException("Expense does not exist"));
+    return withSettlement(expense, expenseSplitRepository.findByExpenseId(expenseId), userId);
   }
 
   public Page<ExpenseResponse> searchExpenses(Pageable pageable, String category, UUID userId) {
     Page<Expense> expensesPage = expenseRepository.findExpenses(userId, category, pageable);
 
-    return expensesPage.map(expenseMapper::toExpenseResponse);
+    // One extra query for the whole page — never a per-expense lookup.
+    Map<UUID, List<ExpenseSplit>> splitsByExpense = loadSplits(expensesPage.getContent());
+
+    return expensesPage.map(
+        expense ->
+            withSettlement(
+                expense, splitsByExpense.getOrDefault(expense.getId(), List.of()), userId));
+  }
+
+  private Map<UUID, List<ExpenseSplit>> loadSplits(List<Expense> expenses) {
+    if (expenses.isEmpty()) {
+      return Map.of();
+    }
+    List<UUID> ids = expenses.stream().map(Expense::getId).toList();
+    return expenseSplitRepository.findByExpenseIdIn(ids).stream()
+        .collect(Collectors.groupingBy(split -> split.getExpense().getId()));
+  }
+
+  /**
+   * Attaches the viewer-relative settlement summary. The owner's own split row is excluded — it is
+   * always settled and nobody owes it — so an expense with no participants reads as "nothing to
+   * settle" (splitCount 0).
+   */
+  private ExpenseResponse withSettlement(
+      Expense expense, List<ExpenseSplit> splits, UUID viewerId) {
+    UUID ownerId = expense.getUser().getId();
+    List<ExpenseSplit> participants =
+        splits.stream().filter(s -> !s.getUser().getId().equals(ownerId)).toList();
+
+    int splitCount = participants.size();
+    int settledCount =
+        (int) participants.stream().filter(s -> Boolean.TRUE.equals(s.getSettled())).count();
+
+    boolean settled;
+    if (splitCount == 0) {
+      settled = false; // personal expense — nothing to settle
+    } else if (ownerId.equals(viewerId)) {
+      settled = settledCount == splitCount; // everyone has paid the owner
+    } else {
+      settled =
+          participants.stream()
+              .filter(s -> s.getUser().getId().equals(viewerId))
+              .findFirst()
+              .map(s -> Boolean.TRUE.equals(s.getSettled()))
+              .orElse(false); // the viewer's own share
+    }
+
+    return expenseMapper
+        .toExpenseResponse(expense)
+        .withSettlement(splitCount, settledCount, settled);
   }
 
   public ExpenseResponse updateExpense(UUID expenseId, UUID userId, CreateExpenseRequest request) {
@@ -105,7 +158,8 @@ public class ExpenseService {
     expense.setDate(request.date());
     expense.setProject(resolveProject(request.projectId(), userId));
 
-    return expenseMapper.toExpenseResponse(expenseRepository.save(expense));
+    Expense saved = expenseRepository.save(expense);
+    return withSettlement(saved, expenseSplitRepository.findByExpenseId(expenseId), userId);
   }
 
   @Transactional

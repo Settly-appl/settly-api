@@ -84,7 +84,10 @@ class ExpensesControllerTest {
             BigDecimal.valueOf(100.00),
             false,
             LocalDate.now(),
-            Instant.now());
+            Instant.now(),
+            0,
+            0,
+            false);
 
     updatedExpense =
         new ExpenseResponse(
@@ -98,7 +101,10 @@ class ExpensesControllerTest {
             BigDecimal.valueOf(150.00),
             false,
             LocalDate.now(),
-            Instant.now());
+            Instant.now(),
+            0,
+            0,
+            false);
   }
 
   // region createExpense
