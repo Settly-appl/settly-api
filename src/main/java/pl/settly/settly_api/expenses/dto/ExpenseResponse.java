@@ -16,7 +16,11 @@ import java.util.UUID;
  *       0 means a personal expense: nothing to settle.
  *   <li>{@code settledCount} — how many of those have been settled.
  *   <li>{@code settled} — if the viewer owns the expense: every participant has settled. If the
- *       viewer is a participant: their own split is settled.
+ *       viewer is a participant: their own split is settled. If the viewer is neither (a project
+ *       member looking at someone else's expense in the shared ledger): whether everyone has
+ *       settled.
+ *   <li>{@code canSettle} — whether this viewer may settle it at all. False for a bystander seeing
+ *       it only through project membership; the backend would refuse, so the UI must not offer it.
  * </ul>
  */
 public record ExpenseResponse(
@@ -33,9 +37,11 @@ public record ExpenseResponse(
     Instant createdAt,
     Integer splitCount,
     Integer settledCount,
-    Boolean settled) {
+    Boolean settled,
+    Boolean canSettle) {
 
-  public ExpenseResponse withSettlement(int splitCount, int settledCount, boolean settled) {
+  public ExpenseResponse withSettlement(
+      int splitCount, int settledCount, boolean settled, boolean canSettle) {
     return new ExpenseResponse(
         id,
         userId,
@@ -50,6 +56,7 @@ public record ExpenseResponse(
         createdAt,
         splitCount,
         settledCount,
-        settled);
+        settled,
+        canSettle);
   }
 }

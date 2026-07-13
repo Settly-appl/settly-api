@@ -23,6 +23,7 @@ public interface ExpenseMapper {
   @Mapping(target = "splitCount", ignore = true)
   @Mapping(target = "settledCount", ignore = true)
   @Mapping(target = "settled", ignore = true)
+  @Mapping(target = "canSettle", ignore = true)
   ExpenseResponse toExpenseResponse(Expense expense);
 
   @Mapping(source = "expense.id", target = "expenseId")

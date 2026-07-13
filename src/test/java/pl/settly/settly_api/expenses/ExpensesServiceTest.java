@@ -2,6 +2,7 @@ package pl.settly.settly_api.expenses;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
@@ -248,6 +249,7 @@ class ExpensesServiceTest {
     ExpenseResponse expectedResponse = createDefaultResponse();
 
     Page<Expense> page = new PageImpl<>(List.of(expense), pageable, 1);
+    given(projectAccessService.isMember(projectId, userId)).willReturn(true);
     given(expenseRepository.findExpenses(userId, null, projectId, pageable)).willReturn(page);
     given(expenseSplitRepository.findByExpenseIdIn(List.of(expenseId))).willReturn(List.of());
     given(expenseMapper.toExpenseResponse(expense)).willReturn(expectedResponse);
@@ -257,6 +259,20 @@ class ExpensesServiceTest {
     // The project must reach the query — otherwise a project's expense list would
     // silently show every expense the user has.
     verify(expenseRepository).findExpenses(userId, null, projectId, pageable);
+  }
+
+  @Test
+  void should_refuse_a_project_ledger_to_a_non_member() {
+    // Scoped to a project the query returns the WHOLE ledger, including expenses
+    // between other people. Membership is the only thing standing between a
+    // stranger and everyone else's spending, so it must be checked.
+    Pageable pageable = PageRequest.of(0, 10);
+    given(projectAccessService.isMember(projectId, userId)).willReturn(false);
+
+    assertThatThrownBy(() -> expenseService.searchExpenses(pageable, null, projectId, userId))
+        .isInstanceOf(ResourceNotFoundException.class);
+
+    verify(expenseRepository, org.mockito.Mockito.never()).findExpenses(any(), any(), any(), any());
   }
 
   // endregion
@@ -550,6 +566,7 @@ class ExpensesServiceTest {
         Instant.now(),
         0,
         0,
+        false,
         false);
   }
 }

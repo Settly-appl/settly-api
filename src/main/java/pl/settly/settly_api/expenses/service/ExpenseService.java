@@ -92,6 +92,12 @@ public class ExpenseService {
 
   public Page<ExpenseResponse> searchExpenses(
       Pageable pageable, String category, UUID projectId, UUID userId) {
+    // Scoped to a project, membership is what grants sight of the whole ledger —
+    // so it has to be checked here, not left to the query.
+    if (projectId != null && !projectAccessService.isMember(projectId, userId)) {
+      throw new ResourceNotFoundException("Project does not exist");
+    }
+
     Page<Expense> expensesPage =
         expenseRepository.findExpenses(userId, category, projectId, pageable);
 
@@ -128,23 +134,30 @@ public class ExpenseService {
     int settledCount =
         (int) participants.stream().filter(s -> Boolean.TRUE.equals(s.getSettled())).count();
 
+    boolean isOwner = ownerId.equals(viewerId);
+    ExpenseSplit ownShare =
+        participants.stream()
+            .filter(s -> s.getUser().getId().equals(viewerId))
+            .findFirst()
+            .orElse(null);
+
+    // A project member can see expenses between other members (the shared ledger), but
+    // has no share in them and cannot settle them — the backend would refuse, so don't
+    // let the UI offer it, and don't report "unsettled" as if it were their debt.
+    boolean canSettle = splitCount > 0 && (isOwner || ownShare != null);
+
     boolean settled;
     if (splitCount == 0) {
       settled = false; // personal expense — nothing to settle
-    } else if (ownerId.equals(viewerId)) {
-      settled = settledCount == splitCount; // everyone has paid the owner
+    } else if (isOwner || ownShare == null) {
+      settled = settledCount == splitCount; // everyone has settled
     } else {
-      settled =
-          participants.stream()
-              .filter(s -> s.getUser().getId().equals(viewerId))
-              .findFirst()
-              .map(s -> Boolean.TRUE.equals(s.getSettled()))
-              .orElse(false); // the viewer's own share
+      settled = Boolean.TRUE.equals(ownShare.getSettled()); // the viewer's own share
     }
 
     return expenseMapper
         .toExpenseResponse(expense)
-        .withSettlement(splitCount, settledCount, settled);
+        .withSettlement(splitCount, settledCount, settled, canSettle);
   }
 
   public ExpenseResponse updateExpense(UUID expenseId, UUID userId, CreateExpenseRequest request) {

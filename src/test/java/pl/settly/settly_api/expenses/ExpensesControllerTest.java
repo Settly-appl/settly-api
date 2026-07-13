@@ -87,6 +87,7 @@ class ExpensesControllerTest {
             Instant.now(),
             0,
             0,
+            false,
             false);
 
     updatedExpense =
@@ -104,6 +105,7 @@ class ExpensesControllerTest {
             Instant.now(),
             0,
             0,
+            false,
             false);
   }
 

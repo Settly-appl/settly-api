@@ -17,12 +17,17 @@ public interface ExpenseRepository extends JpaRepository<Expense, UUID> {
   Optional<Expense> findByIdAndUser_Id(UUID id, UUID userId);
 
   /**
-   * Expenses visible to the user (they own it, or they are in its split), optionally narrowed to a
-   * category and/or a project. A null/blank filter means "don't narrow by that".
+   * Expenses visible to the user, optionally narrowed to a category and/or a project.
+   *
+   * <p>Normally you see an expense if you created it or you are in its split. <b>Scoped to a
+   * project, a member sees the whole project ledger</b> — including expenses between other members
+   * that they are not party to. That is the point of a project: a shared trip has one set of books,
+   * and the caller has already checked membership. Without this, every member would see a different
+   * subset of "the trip's expenses" and the project total would not match the list under it.
    */
   @Query(
       "SELECT DISTINCT e FROM Expense e LEFT JOIN ExpenseSplit es ON es.expense.id = e.id WHERE "
-          + "(es.user.id = :userId OR e.user.id = :userId) "
+          + "(:projectId IS NOT NULL OR es.user.id = :userId OR e.user.id = :userId) "
           + "AND (:category IS NULL OR :category = '' OR e.category = :category) "
           + "AND (:projectId IS NULL OR e.project.id = :projectId)")
   Page<Expense> findExpenses(
