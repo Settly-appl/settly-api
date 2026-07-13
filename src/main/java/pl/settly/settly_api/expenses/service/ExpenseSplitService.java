@@ -28,6 +28,7 @@ import pl.settly.settly_api.expenses.repository.ExpenseItemSplitRepository;
 import pl.settly.settly_api.expenses.repository.ExpenseRepository;
 import pl.settly.settly_api.expenses.repository.ExpenseSplitRepository;
 import pl.settly.settly_api.friendships.service.FriendshipService;
+import pl.settly.settly_api.notifications.event.ExpenseSettlementChangedEvent;
 import pl.settly.settly_api.notifications.event.ExpenseSplitCreatedEvent;
 
 @Service
@@ -323,6 +324,9 @@ public class ExpenseSplitService {
     return setSplitSettled(expenseId, splitId, userId, true);
   }
 
+  // Must be transactional: the settlement event is published to an AFTER_COMMIT
+  // listener, which is silently skipped when there is no transaction to commit.
+  @Transactional
   public ExpenseSplitResponse unsettleSplit(UUID expenseId, UUID splitId, UUID userId) {
     return setSplitSettled(expenseId, splitId, userId, false);
   }
@@ -360,7 +364,25 @@ public class ExpenseSplitService {
     }
 
     applySettled(split, settled);
-    return expenseMapper.toExpenseSplitResponse(expenseSplitRepository.save(split));
+    ExpenseSplitResponse response =
+        expenseMapper.toExpenseSplitResponse(expenseSplitRepository.save(split));
+
+    // Tell the other side: the owner settling a share notifies that participant;
+    // a participant recording their payment notifies the owner.
+    UUID recipient = isOwner ? split.getUser().getId() : ownerId;
+    publishSettlementChanged(expense, userId, List.of(recipient), settled);
+
+    return response;
+  }
+
+  private void publishSettlementChanged(
+      Expense expense, UUID actorId, List<UUID> recipientIds, boolean settled) {
+    if (recipientIds.isEmpty()) {
+      return;
+    }
+    eventPublisher.publishEvent(
+        new ExpenseSettlementChangedEvent(
+            actorId, recipientIds, expense.getId(), expense.getShop(), settled));
   }
 
   /**
@@ -395,6 +417,14 @@ public class ExpenseSplitService {
 
     targets.forEach(s -> applySettled(s, settled));
     expenseSplitRepository.saveAll(targets);
+
+    // The owner clearing the expense notifies every participant they cleared; a
+    // participant clearing their own share notifies the owner.
+    List<UUID> recipients =
+        isOwner
+            ? targets.stream().map(s -> s.getUser().getId()).distinct().toList()
+            : List.of(ownerId);
+    publishSettlementChanged(expense, userId, recipients, settled);
 
     return targets.stream().map(expenseMapper::toExpenseSplitResponse).toList();
   }

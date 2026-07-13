@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import pl.settly.settly_api.debts.dto.BalanceAggregate;
+import pl.settly.settly_api.expenses.dto.DebtorSummary;
 import pl.settly.settly_api.expenses.model.ExpenseSplit;
 
 public interface ExpenseSplitRepository extends JpaRepository<ExpenseSplit, UUID> {
@@ -27,6 +28,17 @@ public interface ExpenseSplitRepository extends JpaRepository<ExpenseSplit, UUID
 
   /** Splits cleared by a given settle-up — used to reverse it. */
   List<ExpenseSplit> findBySettledByDebtId(UUID debtId);
+
+  /**
+   * Everyone who currently owes money, with how many shares are outstanding and their total. The
+   * owner's own row is excluded — nobody owes it. Drives the daily settle-up reminder.
+   */
+  @Query(
+      "SELECT s.user.id AS userId, COUNT(s) AS unsettledCount, SUM(s.amount) AS total"
+          + " FROM ExpenseSplit s"
+          + " WHERE s.settled = false AND s.user.id <> s.expense.user.id"
+          + " GROUP BY s.user.id")
+  List<DebtorSummary> findDebtorsWithUnsettledShares();
 
   /** Unsettled amounts other users owe the given user (their splits on the user's expenses). */
   @Query(

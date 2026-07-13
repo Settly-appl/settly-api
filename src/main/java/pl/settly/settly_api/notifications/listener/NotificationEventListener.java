@@ -8,6 +8,7 @@ import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 import pl.settly.settly_api.auth.user.model.User;
 import pl.settly.settly_api.auth.user.repository.UserRepository;
+import pl.settly.settly_api.notifications.event.ExpenseSettlementChangedEvent;
 import pl.settly.settly_api.notifications.event.ExpenseSplitCreatedEvent;
 import pl.settly.settly_api.notifications.event.FriendRequestAcceptedEvent;
 import pl.settly.settly_api.notifications.event.FriendRequestedEvent;
@@ -63,6 +64,32 @@ public class NotificationEventListener {
             event.expenseId().toString());
     for (UUID recipientId : event.recipientIds()) {
       notificationService.sendToUser(recipientId, "Nowy wspólny wydatek", body, data);
+    }
+  }
+
+  @Async
+  @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+  public void onExpenseSettlementChanged(ExpenseSettlementChangedEvent event) {
+    String actor = displayName(event.actorId());
+    String where = event.shop() == null || event.shop().isBlank() ? "wydatek" : event.shop();
+
+    String title = event.settled() ? "Wydatek rozliczony" : "Rozliczenie cofnięte";
+    String body =
+        event.settled()
+            ? actor + " oznaczył(a) jako rozliczone: " + where
+            : actor + " cofnął(-ęła) rozliczenie: " + where;
+
+    Map<String, String> data =
+        Map.of(
+            "type",
+            "EXPENSE_SETTLEMENT",
+            "actorId",
+            event.actorId().toString(),
+            "expenseId",
+            event.expenseId().toString());
+
+    for (UUID recipientId : event.recipientIds()) {
+      notificationService.sendToUser(recipientId, title, body, data);
     }
   }
 

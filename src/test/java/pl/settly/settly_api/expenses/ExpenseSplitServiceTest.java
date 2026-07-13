@@ -41,6 +41,7 @@ import pl.settly.settly_api.expenses.repository.ExpenseSplitRepository;
 import pl.settly.settly_api.expenses.service.ExpenseAccessService;
 import pl.settly.settly_api.expenses.service.ExpenseSplitService;
 import pl.settly.settly_api.friendships.service.FriendshipService;
+import pl.settly.settly_api.notifications.event.ExpenseSettlementChangedEvent;
 
 @ExtendWith(MockitoExtension.class)
 class ExpenseSplitServiceTest {
@@ -920,6 +921,77 @@ class ExpenseSplitServiceTest {
     verify(expenseItemSplitRepository).saveAll(itemSplitsCaptor.capture());
     assertThat(itemSplitsCaptor.getValue())
         .allSatisfy(s -> assertThat(s.getAmount()).isEqualByComparingTo("5.00"));
+  }
+
+  // endregion
+
+  // region settlement notifications
+
+  @Test
+  void should_notify_the_participant_when_the_owner_settles_their_share() {
+    Expense expense = createExpense(BigDecimal.valueOf(100));
+    expense.setShop("Biedronka");
+    UUID splitId = UUID.randomUUID();
+    ExpenseSplit split = friendSplitOn(expense, splitId, false);
+
+    given(expenseRepository.findById(expenseId)).willReturn(Optional.of(expense));
+    given(expenseSplitRepository.findById(splitId)).willReturn(Optional.of(split));
+    given(expenseSplitRepository.save(split)).willReturn(split);
+    given(expenseMapper.toExpenseSplitResponse(split)).willReturn(dummyResponse());
+
+    expenseSplitService.settleSplit(expenseId, splitId, userId);
+
+    ArgumentCaptor<ExpenseSettlementChangedEvent> captor =
+        ArgumentCaptor.forClass(ExpenseSettlementChangedEvent.class);
+    verify(eventPublisher).publishEvent(captor.capture());
+
+    ExpenseSettlementChangedEvent event = captor.getValue();
+    assertThat(event.settled()).isTrue();
+    assertThat(event.actorId()).isEqualTo(userId);
+    // The other side hears about it — never the person who did it.
+    assertThat(event.recipientIds()).containsExactly(friendId);
+    assertThat(event.shop()).isEqualTo("Biedronka");
+  }
+
+  @Test
+  void should_notify_the_owner_when_the_debtor_records_their_payment() {
+    Expense expense = createExpense(BigDecimal.valueOf(100));
+    UUID splitId = UUID.randomUUID();
+    ExpenseSplit split = friendSplitOn(expense, splitId, false);
+
+    given(expenseRepository.findById(expenseId)).willReturn(Optional.of(expense));
+    given(expenseSplitRepository.findById(splitId)).willReturn(Optional.of(split));
+    given(expenseSplitRepository.save(split)).willReturn(split);
+    given(expenseMapper.toExpenseSplitResponse(split)).willReturn(dummyResponse());
+
+    expenseSplitService.settleSplit(expenseId, splitId, friendId);
+
+    ArgumentCaptor<ExpenseSettlementChangedEvent> captor =
+        ArgumentCaptor.forClass(ExpenseSettlementChangedEvent.class);
+    verify(eventPublisher).publishEvent(captor.capture());
+
+    assertThat(captor.getValue().recipientIds()).containsExactly(userId);
+  }
+
+  @Test
+  void should_notify_on_unsettle_too() {
+    Expense expense = createExpense(BigDecimal.valueOf(100));
+    UUID splitId = UUID.randomUUID();
+    ExpenseSplit split = friendSplitOn(expense, splitId, true);
+
+    given(expenseRepository.findById(expenseId)).willReturn(Optional.of(expense));
+    given(expenseSplitRepository.findById(splitId)).willReturn(Optional.of(split));
+    given(expenseSplitRepository.save(split)).willReturn(split);
+    given(expenseMapper.toExpenseSplitResponse(split)).willReturn(dummyResponse());
+
+    expenseSplitService.unsettleSplit(expenseId, splitId, userId);
+
+    ArgumentCaptor<ExpenseSettlementChangedEvent> captor =
+        ArgumentCaptor.forClass(ExpenseSettlementChangedEvent.class);
+    verify(eventPublisher).publishEvent(captor.capture());
+
+    assertThat(captor.getValue().settled()).isFalse();
+    assertThat(captor.getValue().recipientIds()).containsExactly(friendId);
   }
 
   // endregion
