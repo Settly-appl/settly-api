@@ -44,10 +44,19 @@ public class SettlementReminderJob {
     if (!enabled) {
       return;
     }
+    sendReminders();
+  }
 
+  /**
+   * Sends the reminders right now and reports how many people were nudged.
+   *
+   * <p>Deliberately ignores the {@code enabled} flag: that switch governs the daily schedule, and
+   * an admin explicitly firing the reminder should work even when the schedule is off.
+   */
+  public int sendReminders() {
     List<DebtorSummary> debtors = expenseSplitRepository.findDebtorsWithUnsettledShares();
     if (debtors.isEmpty()) {
-      return;
+      return 0;
     }
 
     for (DebtorSummary debtor : debtors) {
@@ -65,6 +74,7 @@ public class SettlementReminderJob {
     }
 
     log.info("Sent settle-up reminders to {} user(s)", debtors.size());
+    return debtors.size();
   }
 
   /**

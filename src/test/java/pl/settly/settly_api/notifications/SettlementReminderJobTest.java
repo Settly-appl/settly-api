@@ -82,6 +82,27 @@ class SettlementReminderJobTest {
   }
 
   @Test
+  void should_still_send_when_an_admin_forces_it_even_if_the_schedule_is_disabled() {
+    // The flag switches off the daily schedule; an admin explicitly firing the
+    // reminder should still work, otherwise the button would silently do nothing.
+    UUID debtorId = UUID.randomUUID();
+    given(expenseSplitRepository.findDebtorsWithUnsettledShares())
+        .willReturn(List.of(debtor(debtorId, 2, "20.00")));
+
+    int reminded = job(false).sendReminders();
+
+    assertThat(reminded).isEqualTo(1);
+    verify(notificationService).sendToUser(eq(debtorId), any(), any(), any());
+  }
+
+  @Test
+  void should_report_zero_when_nobody_owes_so_it_is_not_mistaken_for_a_failure() {
+    given(expenseSplitRepository.findDebtorsWithUnsettledShares()).willReturn(List.of());
+
+    assertThat(job(true).sendReminders()).isZero();
+  }
+
+  @Test
   void should_deep_link_to_the_reminder() {
     UUID debtorId = UUID.randomUUID();
     given(expenseSplitRepository.findDebtorsWithUnsettledShares())
