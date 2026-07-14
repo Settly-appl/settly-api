@@ -41,6 +41,7 @@ import pl.settly.settly_api.expenses.repository.ExpenseSplitRepository;
 import pl.settly.settly_api.expenses.service.ExpenseAccessService;
 import pl.settly.settly_api.expenses.service.ExpenseSplitService;
 import pl.settly.settly_api.friendships.service.FriendshipService;
+import pl.settly.settly_api.notifications.event.ExpensePaymentDeclaredEvent;
 import pl.settly.settly_api.notifications.event.ExpenseSettlementChangedEvent;
 
 @ExtendWith(MockitoExtension.class)
@@ -87,6 +88,8 @@ class ExpenseSplitServiceTest {
         "testuser",
         ExpenseSplitType.EQUAL,
         BigDecimal.TEN,
+        false,
+        null,
         false,
         null);
   }
@@ -710,8 +713,9 @@ class ExpenseSplitServiceTest {
   }
 
   @Test
-  void should_let_the_debtor_settle_their_own_split() {
-    // The participant records that they paid — allowed, they are the split's user.
+  void should_record_a_declaration_not_a_settlement_when_the_debtor_marks_their_own_split() {
+    // "I paid" from the participant is a claim for the owner to verify — the share
+    // must NOT become settled until the owner confirms.
     Expense expense = createExpense(BigDecimal.valueOf(100));
     UUID splitId = UUID.randomUUID();
     ExpenseSplit split = friendSplitOn(expense, splitId, false);
@@ -723,7 +727,68 @@ class ExpenseSplitServiceTest {
 
     expenseSplitService.settleSplit(expenseId, splitId, friendId);
 
+    assertThat(split.getSettled()).isFalse();
+    assertThat(split.getDeclaredPaid()).isTrue();
+    assertThat(split.getDeclaredAt()).isNotNull();
+  }
+
+  @Test
+  void should_let_the_debtor_retract_their_declaration() {
+    Expense expense = createExpense(BigDecimal.valueOf(100));
+    UUID splitId = UUID.randomUUID();
+    ExpenseSplit split = friendSplitOn(expense, splitId, false);
+    split.setDeclaredPaid(true);
+    split.setDeclaredAt(Instant.now());
+
+    given(expenseRepository.findById(expenseId)).willReturn(Optional.of(expense));
+    given(expenseSplitRepository.findById(splitId)).willReturn(Optional.of(split));
+    given(expenseSplitRepository.save(split)).willReturn(split);
+    given(expenseMapper.toExpenseSplitResponse(split)).willReturn(dummyResponse());
+
+    expenseSplitService.unsettleSplit(expenseId, splitId, friendId);
+
+    assertThat(split.getDeclaredPaid()).isFalse();
+    assertThat(split.getDeclaredAt()).isNull();
+    assertThat(split.getSettled()).isFalse();
+  }
+
+  @Test
+  void should_not_let_the_debtor_flip_an_owner_confirmed_settlement() {
+    // Settled is the owner's word; the participant's "unsettle" only retracts a
+    // declaration and must leave a confirmed share settled.
+    Expense expense = createExpense(BigDecimal.valueOf(100));
+    UUID splitId = UUID.randomUUID();
+    ExpenseSplit split = friendSplitOn(expense, splitId, true);
+
+    given(expenseRepository.findById(expenseId)).willReturn(Optional.of(expense));
+    given(expenseSplitRepository.findById(splitId)).willReturn(Optional.of(split));
+    given(expenseSplitRepository.save(split)).willReturn(split);
+    given(expenseMapper.toExpenseSplitResponse(split)).willReturn(dummyResponse());
+
+    expenseSplitService.unsettleSplit(expenseId, splitId, friendId);
+
     assertThat(split.getSettled()).isTrue();
+    verify(eventPublisher, org.mockito.Mockito.never()).publishEvent(any());
+  }
+
+  @Test
+  void should_clear_the_declaration_when_the_owner_settles_the_share() {
+    Expense expense = createExpense(BigDecimal.valueOf(100));
+    UUID splitId = UUID.randomUUID();
+    ExpenseSplit split = friendSplitOn(expense, splitId, false);
+    split.setDeclaredPaid(true);
+    split.setDeclaredAt(Instant.now());
+
+    given(expenseRepository.findById(expenseId)).willReturn(Optional.of(expense));
+    given(expenseSplitRepository.findById(splitId)).willReturn(Optional.of(split));
+    given(expenseSplitRepository.save(split)).willReturn(split);
+    given(expenseMapper.toExpenseSplitResponse(split)).willReturn(dummyResponse());
+
+    expenseSplitService.settleSplit(expenseId, splitId, userId);
+
+    assertThat(split.getSettled()).isTrue();
+    assertThat(split.getDeclaredPaid()).isFalse();
+    assertThat(split.getDeclaredAt()).isNull();
   }
 
   @Test
@@ -954,8 +1019,9 @@ class ExpenseSplitServiceTest {
   }
 
   @Test
-  void should_notify_the_owner_when_the_debtor_records_their_payment() {
+  void should_notify_the_owner_with_a_declaration_when_the_debtor_marks_their_payment() {
     Expense expense = createExpense(BigDecimal.valueOf(100));
+    expense.setShop("Biedronka");
     UUID splitId = UUID.randomUUID();
     ExpenseSplit split = friendSplitOn(expense, splitId, false);
 
@@ -966,11 +1032,34 @@ class ExpenseSplitServiceTest {
 
     expenseSplitService.settleSplit(expenseId, splitId, friendId);
 
-    ArgumentCaptor<ExpenseSettlementChangedEvent> captor =
-        ArgumentCaptor.forClass(ExpenseSettlementChangedEvent.class);
+    ArgumentCaptor<ExpensePaymentDeclaredEvent> captor =
+        ArgumentCaptor.forClass(ExpensePaymentDeclaredEvent.class);
     verify(eventPublisher).publishEvent(captor.capture());
 
-    assertThat(captor.getValue().recipientIds()).containsExactly(userId);
+    ExpensePaymentDeclaredEvent event = captor.getValue();
+    assertThat(event.ownerId()).isEqualTo(userId);
+    assertThat(event.actorId()).isEqualTo(friendId);
+    assertThat(event.declared()).isTrue();
+    assertThat(event.shop()).isEqualTo("Biedronka");
+  }
+
+  @Test
+  void should_not_renotify_the_owner_on_a_repeated_declaration() {
+    // A stray double swipe must not spam the owner.
+    Expense expense = createExpense(BigDecimal.valueOf(100));
+    UUID splitId = UUID.randomUUID();
+    ExpenseSplit split = friendSplitOn(expense, splitId, false);
+    split.setDeclaredPaid(true);
+    split.setDeclaredAt(Instant.now());
+
+    given(expenseRepository.findById(expenseId)).willReturn(Optional.of(expense));
+    given(expenseSplitRepository.findById(splitId)).willReturn(Optional.of(split));
+    given(expenseSplitRepository.save(split)).willReturn(split);
+    given(expenseMapper.toExpenseSplitResponse(split)).willReturn(dummyResponse());
+
+    expenseSplitService.settleSplit(expenseId, splitId, friendId);
+
+    verify(eventPublisher, org.mockito.Mockito.never()).publishEvent(any());
   }
 
   @Test
@@ -1061,7 +1150,7 @@ class ExpenseSplitServiceTest {
   }
 
   @Test
-  void should_settle_only_own_share_when_participant_settles_the_expense() {
+  void should_declare_only_own_share_when_participant_settles_the_expense() {
     Expense expense = createExpense(BigDecimal.valueOf(100));
     UUID otherFriendId = UUID.randomUUID();
 
@@ -1084,9 +1173,17 @@ class ExpenseSplitServiceTest {
 
     expenseSplitService.setExpenseSettled(expenseId, friendId, true);
 
-    assertThat(myShare.getSettled()).isTrue();
-    // A participant must not settle anybody else's share.
+    // The participant's "settle" is only a claim — nothing becomes settled.
+    assertThat(myShare.getSettled()).isFalse();
+    assertThat(myShare.getDeclaredPaid()).isTrue();
+    // A participant must not touch anybody else's share.
     assertThat(othersShare.getSettled()).isFalse();
+    assertThat(othersShare.getDeclaredPaid()).isFalse();
+
+    ArgumentCaptor<ExpensePaymentDeclaredEvent> captor =
+        ArgumentCaptor.forClass(ExpensePaymentDeclaredEvent.class);
+    verify(eventPublisher).publishEvent(captor.capture());
+    assertThat(captor.getValue().ownerId()).isEqualTo(userId);
   }
 
   // endregion

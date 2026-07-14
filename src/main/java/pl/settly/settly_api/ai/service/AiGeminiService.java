@@ -33,6 +33,7 @@ public class AiGeminiService {
          - 'transport' (dla paliwa, biletów komunikacji, taksówek)
          - 'entertainment' (dla kin, biletów na wydarzenia, gier)
          - 'health' (dla aptek, lekarzy, leków)
+         - 'subscriptions' (dla abonamentów i subskrypcji: streaming, telefon, internet, siłownia)
          - 'others' (jeśli wydatek nie pasuje do żadnej z powyższych)
 
          BARDZO WAŻNE ZASADY DOTYCZĄCE CENY PRODUKTÓW (price):
@@ -63,6 +64,7 @@ public class AiGeminiService {
          - 'transport' (dla paliwa, biletów komunikacji, taksówek)
          - 'entertainment' (dla kin, biletów na wydarzenia, gier)
          - 'health' (dla aptek, lekarzy, leków)
+         - 'subscriptions' (dla abonamentów i subskrypcji: streaming, telefon, internet, siłownia)
          - 'others' (jeśli wydatek nie pasuje do żadnej z powyższych)
 
       3. "totalAmount" (Cena):

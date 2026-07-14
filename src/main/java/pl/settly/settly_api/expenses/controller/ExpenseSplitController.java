@@ -70,7 +70,10 @@ public class ExpenseSplitController {
             expenseId, splitId, UUID.fromString(authentication.getName())));
   }
 
-  /** Settle a whole expense: the owner clears everyone, a participant clears their own share. */
+  /**
+   * Settle a whole expense: the owner clears everyone; a participant only declares their own share
+   * paid — a suggestion the owner still has to confirm.
+   */
   @PatchMapping("/{expenseId}/settle")
   public ResponseEntity<List<ExpenseSplitResponse>> settleExpense(
       @PathVariable UUID expenseId, Authentication authentication) {

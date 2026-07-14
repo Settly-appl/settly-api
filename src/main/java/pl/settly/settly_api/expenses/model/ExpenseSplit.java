@@ -51,6 +51,18 @@ public class ExpenseSplit {
   private Instant settledAt;
 
   /**
+   * The split's own user claims they paid. A claim, not a fact: it does not affect balances and
+   * only the owner settling the share turns it into one. Cleared whenever the share becomes
+   * settled.
+   */
+  @Builder.Default
+  @Column(name = "declared_paid", nullable = false)
+  private Boolean declaredPaid = false;
+
+  @Column(name = "declared_at")
+  private Instant declaredAt;
+
+  /**
    * The settle-up that settled this split, if any. Set only when a bulk settle-up cleared it;
    * splits settled one-by-one leave this null. A split settled by a settle-up must not be unsettled
    * on its own — that would resurrect a balance for money that was actually paid. Reverse the whole

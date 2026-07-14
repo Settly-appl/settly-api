@@ -155,9 +155,14 @@ public class ExpenseService {
       settled = Boolean.TRUE.equals(ownShare.getSettled()); // the viewer's own share
     }
 
+    // "I paid" claims awaiting the owner's confirmation (settled shares carry none).
+    int declaredCount =
+        (int) participants.stream().filter(s -> Boolean.TRUE.equals(s.getDeclaredPaid())).count();
+    boolean declared = ownShare != null && Boolean.TRUE.equals(ownShare.getDeclaredPaid());
+
     return expenseMapper
         .toExpenseResponse(expense)
-        .withSettlement(splitCount, settledCount, settled, canSettle);
+        .withSettlement(splitCount, settledCount, settled, canSettle, declaredCount, declared);
   }
 
   public ExpenseResponse updateExpense(UUID expenseId, UUID userId, CreateExpenseRequest request) {

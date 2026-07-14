@@ -14,4 +14,7 @@ public record ExpenseSplitResponse(
     ExpenseSplitType splitType,
     BigDecimal amount,
     boolean settled,
-    Instant settledAt) {}
+    Instant settledAt,
+    // The split's user claims they paid — a suggestion for the owner, not a fact.
+    boolean declaredPaid,
+    Instant declaredAt) {}

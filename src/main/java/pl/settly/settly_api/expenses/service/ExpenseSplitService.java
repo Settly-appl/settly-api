@@ -28,6 +28,7 @@ import pl.settly.settly_api.expenses.repository.ExpenseItemSplitRepository;
 import pl.settly.settly_api.expenses.repository.ExpenseRepository;
 import pl.settly.settly_api.expenses.repository.ExpenseSplitRepository;
 import pl.settly.settly_api.friendships.service.FriendshipService;
+import pl.settly.settly_api.notifications.event.ExpensePaymentDeclaredEvent;
 import pl.settly.settly_api.notifications.event.ExpenseSettlementChangedEvent;
 import pl.settly.settly_api.notifications.event.ExpenseSplitCreatedEvent;
 
@@ -332,10 +333,11 @@ public class ExpenseSplitService {
   }
 
   /**
-   * Marks one split settled/unsettled. Either side may do it: the expense owner (the creditor,
-   * confirming they were paid) or the split's own user (the debtor, recording that they paid).
-   * Idempotent — re-settling an already-settled split is a no-op rather than an error, so a stray
-   * double swipe doesn't surface a failure.
+   * Marks one split settled/unsettled — but what that means depends on who asks. Settled is the
+   * owner's word alone (the creditor confirming money arrived); the split's own user "settling"
+   * only <em>declares</em> they paid, a claim surfaced to the owner as a suggestion to double-check
+   * and confirm. Declarations do not affect balances. Idempotent — a stray double swipe doesn't
+   * surface a failure.
    */
   private ExpenseSplitResponse setSplitSettled(
       UUID expenseId, UUID splitId, UUID userId, boolean settled) {
@@ -363,15 +365,22 @@ public class ExpenseSplitService {
       throw new ResourceNotFoundException("Split does not exist");
     }
 
-    applySettled(split, settled);
+    if (isOwner) {
+      applySettled(split, settled);
+      ExpenseSplitResponse response =
+          expenseMapper.toExpenseSplitResponse(expenseSplitRepository.save(split));
+      publishSettlementChanged(expense, userId, List.of(split.getUser().getId()), settled);
+      return response;
+    }
+
+    // The participant: declare "I paid" / retract the declaration.
+    boolean changed = applyDeclared(split, settled);
     ExpenseSplitResponse response =
         expenseMapper.toExpenseSplitResponse(expenseSplitRepository.save(split));
-
-    // Tell the other side: the owner settling a share notifies that participant;
-    // a participant recording their payment notifies the owner.
-    UUID recipient = isOwner ? split.getUser().getId() : ownerId;
-    publishSettlementChanged(expense, userId, List.of(recipient), settled);
-
+    // Only a real state change reaches the owner — a repeated swipe must not re-notify.
+    if (changed) {
+      publishPaymentDeclared(expense, userId, ownerId, settled);
+    }
     return response;
   }
 
@@ -385,9 +394,17 @@ public class ExpenseSplitService {
             actorId, recipientIds, expense.getId(), expense.getShop(), settled));
   }
 
+  private void publishPaymentDeclared(
+      Expense expense, UUID actorId, UUID ownerId, boolean declared) {
+    eventPublisher.publishEvent(
+        new ExpensePaymentDeclaredEvent(
+            actorId, ownerId, expense.getId(), expense.getShop(), declared));
+  }
+
   /**
    * Settles (or unsettles) a whole expense in one go. The owner clears every participant's split; a
-   * participant clears only their own share. Idempotent.
+   * participant only <em>declares</em> their own share paid (see {@link #setSplitSettled}) — the
+   * share stays unsettled until the owner confirms. Idempotent.
    */
   @Transactional
   public List<ExpenseSplitResponse> setExpenseSettled(
@@ -415,16 +432,21 @@ public class ExpenseSplitService {
       throw new ResourceNotFoundException("Nothing to settle on this expense");
     }
 
-    targets.forEach(s -> applySettled(s, settled));
-    expenseSplitRepository.saveAll(targets);
-
-    // The owner clearing the expense notifies every participant they cleared; a
-    // participant clearing their own share notifies the owner.
-    List<UUID> recipients =
-        isOwner
-            ? targets.stream().map(s -> s.getUser().getId()).distinct().toList()
-            : List.of(ownerId);
-    publishSettlementChanged(expense, userId, recipients, settled);
+    if (isOwner) {
+      targets.forEach(s -> applySettled(s, settled));
+      expenseSplitRepository.saveAll(targets);
+      List<UUID> recipients = targets.stream().map(s -> s.getUser().getId()).distinct().toList();
+      publishSettlementChanged(expense, userId, recipients, settled);
+    } else {
+      boolean changed = false;
+      for (ExpenseSplit s : targets) {
+        changed |= applyDeclared(s, settled);
+      }
+      expenseSplitRepository.saveAll(targets);
+      if (changed) {
+        publishPaymentDeclared(expense, userId, ownerId, settled);
+      }
+    }
 
     return targets.stream().map(expenseMapper::toExpenseSplitResponse).toList();
   }
@@ -486,6 +508,28 @@ public class ExpenseSplitService {
     }
     split.setSettled(settled);
     split.setSettledAt(settled ? Instant.now() : null);
+    if (settled) {
+      // The owner confirming resolves the participant's "I paid" claim.
+      split.setDeclaredPaid(false);
+      split.setDeclaredAt(null);
+    }
+  }
+
+  /**
+   * Records or retracts the participant's "I paid" claim. A share the owner already settled is left
+   * alone — the fact outranks the claim, and a participant can no longer flip it back. Returns
+   * whether anything actually changed, so callers don't notify the owner about a repeated swipe.
+   */
+  private boolean applyDeclared(ExpenseSplit split, boolean declared) {
+    if (Boolean.TRUE.equals(split.getSettled())) {
+      return false;
+    }
+    if (declared == Boolean.TRUE.equals(split.getDeclaredPaid())) {
+      return false;
+    }
+    split.setDeclaredPaid(declared);
+    split.setDeclaredAt(declared ? Instant.now() : null);
+    return true;
   }
 
   public List<ExpenseSplitResponse> getUnsettledSplits(UUID userId) {

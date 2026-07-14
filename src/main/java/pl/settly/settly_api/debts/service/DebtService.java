@@ -140,6 +140,9 @@ public class DebtService {
     for (ExpenseSplit split : toSettle) {
       split.setSettled(true);
       split.setSettledAt(now);
+      // A pending "I paid" claim is resolved by the settle-up.
+      split.setDeclaredPaid(false);
+      split.setDeclaredAt(null);
       // Stamp the settlement that covered this split. Unsettling it individually
       // afterwards would claim the money is owed again even though it was paid,
       // so that is refused — the whole settle-up has to be undone instead.

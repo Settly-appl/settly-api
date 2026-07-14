@@ -76,6 +76,8 @@ class ExpenseSplitControllerTest {
         ExpenseSplitType.valueOf(splitType),
         BigDecimal.valueOf(50.00),
         false,
+        null,
+        false,
         null);
   }
 
@@ -251,7 +253,9 @@ class ExpenseSplitControllerTest {
             ExpenseSplitType.EQUAL,
             BigDecimal.valueOf(50.00),
             true,
-            Instant.now());
+            Instant.now(),
+            false,
+            null);
 
     given(
             expenseSplitService.settleSplit(

@@ -8,6 +8,7 @@ import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 import pl.settly.settly_api.auth.user.model.User;
 import pl.settly.settly_api.auth.user.repository.UserRepository;
+import pl.settly.settly_api.notifications.event.ExpensePaymentDeclaredEvent;
 import pl.settly.settly_api.notifications.event.ExpenseSettlementChangedEvent;
 import pl.settly.settly_api.notifications.event.ExpenseSplitCreatedEvent;
 import pl.settly.settly_api.notifications.event.FriendRequestAcceptedEvent;
@@ -91,6 +92,36 @@ public class NotificationEventListener {
     for (UUID recipientId : event.recipientIds()) {
       notificationService.sendToUser(recipientId, title, body, data);
     }
+  }
+
+  /**
+   * A participant claims they paid their share (or takes the claim back). Only the owner hears
+   * about it — the text makes clear it is a declaration to verify, not a settled fact.
+   */
+  @Async
+  @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+  public void onExpensePaymentDeclared(ExpensePaymentDeclaredEvent event) {
+    String actor = displayName(event.actorId());
+    String where = event.shop() == null || event.shop().isBlank() ? "wydatek" : event.shop();
+
+    String title = event.declared() ? "Zgłoszona zapłata" : "Zgłoszenie zapłaty wycofane";
+    String body =
+        event.declared()
+            ? actor + " zgłasza, że zapłacił(a) za: " + where + ". Sprawdź i potwierdź rozliczenie."
+            : actor + " wycofał(a) zgłoszenie zapłaty za: " + where;
+
+    // Deep-links like a settlement change: straight to the expense.
+    notificationService.sendToUser(
+        event.ownerId(),
+        title,
+        body,
+        Map.of(
+            "type",
+            "EXPENSE_SETTLEMENT",
+            "actorId",
+            event.actorId().toString(),
+            "expenseId",
+            event.expenseId().toString()));
   }
 
   private String displayName(UUID userId) {

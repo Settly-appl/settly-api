@@ -31,12 +31,15 @@ public interface ExpenseSplitRepository extends JpaRepository<ExpenseSplit, UUID
 
   /**
    * Everyone who currently owes money, with how many shares are outstanding and their total. The
-   * owner's own row is excluded — nobody owes it. Drives the daily settle-up reminder.
+   * owner's own row is excluded — nobody owes it. Shares whose user already declared "I paid" are
+   * skipped too: nagging someone who claims to have paid (and is waiting for the owner to confirm)
+   * would just be noise. Drives the daily settle-up reminder.
    */
   @Query(
       "SELECT s.user.id AS userId, COUNT(s) AS unsettledCount, SUM(s.amount) AS total"
           + " FROM ExpenseSplit s"
-          + " WHERE s.settled = false AND s.user.id <> s.expense.user.id"
+          + " WHERE s.settled = false AND s.declaredPaid = false"
+          + " AND s.user.id <> s.expense.user.id"
           + " GROUP BY s.user.id")
   List<DebtorSummary> findDebtorsWithUnsettledShares();
 

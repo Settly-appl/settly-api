@@ -21,6 +21,10 @@ import java.util.UUID;
  *       settled.
  *   <li>{@code canSettle} — whether this viewer may settle it at all. False for a bystander seeing
  *       it only through project membership; the backend would refuse, so the UI must not offer it.
+ *   <li>{@code declaredCount} — unsettled participants who claim they already paid (a suggestion
+ *       for the owner to verify and confirm, not a fact).
+ *   <li>{@code declared} — the viewer's own unsettled share carries such a claim. Always false for
+ *       the owner and bystanders.
  * </ul>
  */
 public record ExpenseResponse(
@@ -38,10 +42,17 @@ public record ExpenseResponse(
     Integer splitCount,
     Integer settledCount,
     Boolean settled,
-    Boolean canSettle) {
+    Boolean canSettle,
+    Integer declaredCount,
+    Boolean declared) {
 
   public ExpenseResponse withSettlement(
-      int splitCount, int settledCount, boolean settled, boolean canSettle) {
+      int splitCount,
+      int settledCount,
+      boolean settled,
+      boolean canSettle,
+      int declaredCount,
+      boolean declared) {
     return new ExpenseResponse(
         id,
         userId,
@@ -57,6 +68,8 @@ public record ExpenseResponse(
         splitCount,
         settledCount,
         settled,
-        canSettle);
+        canSettle,
+        declaredCount,
+        declared);
   }
 }

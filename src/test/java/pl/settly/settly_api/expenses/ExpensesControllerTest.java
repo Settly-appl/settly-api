@@ -88,6 +88,8 @@ class ExpensesControllerTest {
             0,
             0,
             false,
+            false,
+            0,
             false);
 
     updatedExpense =
@@ -106,6 +108,8 @@ class ExpensesControllerTest {
             0,
             0,
             false,
+            false,
+            0,
             false);
   }
 
