@@ -38,10 +38,22 @@ ALTER TABLE public.projects
 UPDATE public.expenses SET base_currency = currency, rate_to_base = 1, base_amount = total_amount;
 UPDATE public.expense_splits SET base_amount = amount;
 
--- The defaults existed only to backfill the NOT NULL columns in one statement. Drop
--- the two where falling back would be wrong money rather than a sensible guess: a
--- silent rate of 1 books GBP as PLN, and a silent share of 0 erases a debt. Every
--- write goes through the service, which always supplies both, so an insert that
--- omits them is a bug and should fail loudly.
-ALTER TABLE public.expenses ALTER COLUMN rate_to_base DROP DEFAULT;
-ALTER TABLE public.expense_splits ALTER COLUMN base_amount DROP DEFAULT;
+-- The column defaults stay, deliberately, even though every write in the new
+-- code supplies these explicitly and a fallback value is wrong money rather
+-- than a sensible guess.
+--
+-- The reason is rollback. This migration is additive and Flyway does not undo
+-- it, so redeploying the previous image leaves these columns in place while the
+-- old code knows nothing about them. Without a default, the old code's INSERT
+-- fails the NOT NULL check and *every* expense creation 500s -- the schema
+-- would have made the rollback impossible. With it, a rollback window degrades
+-- instead: expenses written by the old code get rate 1 and no base amount, and
+-- their shares read as 0, so balances and totals UNDERCOUNT until it ends.
+--
+-- That is recoverable and this is not: re-run the two backfill statements above
+-- after rolling forward and the window repairs itself, because for rows the old
+-- code wrote the native amount is the base amount by definition.
+--
+-- Correctness in the forward path does not depend on these defaults: it is
+-- CurrencyConversionService that refuses a foreign expense with no rate, and
+-- every write goes through it.
