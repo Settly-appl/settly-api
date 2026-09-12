@@ -9,11 +9,17 @@ import pl.settly.settly_api.expenses.model.ExpenseSplit;
 @Mapper(componentModel = "spring")
 public interface ExpenseMapper {
 
+  // Currency, rate and converted amount are resolved together (request -> project -> base)
+  // by ExpenseService, which alone can see the project and the user's base currency.
   @Mapping(target = "id", ignore = true)
   @Mapping(target = "user", ignore = true)
   @Mapping(target = "project", ignore = true)
   @Mapping(target = "isScanned", ignore = true)
   @Mapping(target = "createdAt", ignore = true)
+  @Mapping(target = "currency", ignore = true)
+  @Mapping(target = "rateToBase", ignore = true)
+  @Mapping(target = "baseCurrency", ignore = true)
+  @Mapping(target = "baseAmount", ignore = true)
   Expense toExpense(CreateExpenseRequest request);
 
   @Mapping(source = "user.id", target = "userId")
@@ -33,6 +39,9 @@ public interface ExpenseMapper {
   @Mapping(source = "user.displayName", target = "userDisplayName")
   @Mapping(source = "user.username", target = "userName")
   @Mapping(source = "expenseSplitType", target = "splitType")
+  // A share is always denominated in its expense's currency.
+  @Mapping(source = "expense.currency", target = "currency")
+  @Mapping(source = "expense.baseCurrency", target = "baseCurrency")
   ExpenseSplitResponse toExpenseSplitResponse(ExpenseSplit expenseSplit);
 
   @Mapping(target = "id", ignore = true)

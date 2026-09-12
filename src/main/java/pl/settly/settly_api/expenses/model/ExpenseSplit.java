@@ -44,6 +44,14 @@ public class ExpenseSplit {
   @Column(name = "amount", precision = 10, scale = 2, nullable = false)
   private BigDecimal amount;
 
+  /**
+   * {@link #amount} in the expense owner's base currency. Every balance query sums this rather than
+   * {@code amount}, which would add pounds to zloty. Apportioned so the shares of one expense add
+   * up to exactly its {@code baseAmount} - the odd grosz goes to the payer, as elsewhere.
+   */
+  @Column(name = "base_amount", precision = 12, scale = 2, nullable = false)
+  private BigDecimal baseAmount;
+
   @Column(name = "settled", nullable = false)
   private Boolean settled;
 

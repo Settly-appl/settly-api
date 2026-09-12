@@ -8,6 +8,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 import lombok.AllArgsConstructor;
@@ -37,6 +38,17 @@ public class Project {
 
   @Column(name = "description", nullable = true)
   private String description;
+
+  /**
+   * Currency the trip is spent in, and the rate its members bought it at. Expenses added to the
+   * project inherit both, so the rate is typed once per trip rather than once per expense; any
+   * single expense may still override them.
+   */
+  @Column(name = "default_currency", length = 3, nullable = true)
+  private String defaultCurrency;
+
+  @Column(name = "default_rate_to_base", precision = 18, scale = 8, nullable = true)
+  private BigDecimal defaultRateToBase;
 
   @Builder.Default
   @Enumerated(EnumType.STRING)

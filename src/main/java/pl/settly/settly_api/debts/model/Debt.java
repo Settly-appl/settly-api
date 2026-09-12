@@ -48,6 +48,10 @@ public class Debt {
   @Column(name = "amount", precision = 10, scale = 2, nullable = false)
   private BigDecimal amount;
 
+  /** The currency {@link #amount} is in - the creditor's base currency at settle-up time. */
+  @Column(name = "currency", length = 3, nullable = false)
+  private String currency;
+
   @Column(name = "settled")
   private Boolean settled;
 

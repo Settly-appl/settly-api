@@ -156,12 +156,14 @@ class DebtServiceTest {
         ExpenseSplit.builder()
             .expense(expense)
             .amount(BigDecimal.valueOf(30))
+            .baseAmount(BigDecimal.valueOf(30))
             .settled(false)
             .build();
     ExpenseSplit split2 =
         ExpenseSplit.builder()
             .expense(expense)
             .amount(BigDecimal.valueOf(20))
+            .baseAmount(BigDecimal.valueOf(20))
             .settled(false)
             .build();
 
@@ -216,6 +218,7 @@ class DebtServiceTest {
         ExpenseSplit.builder()
             .expense(Expense.builder().build())
             .amount(BigDecimal.valueOf(50))
+            .baseAmount(BigDecimal.valueOf(50))
             .settled(true)
             .settledAt(Instant.now())
             .settledByDebt(debt)
@@ -260,6 +263,7 @@ class DebtServiceTest {
         ExpenseSplit.builder()
             .expense(expense)
             .amount(BigDecimal.valueOf(25))
+            .baseAmount(BigDecimal.valueOf(25))
             .settled(false)
             .build();
     Project project = Project.builder().id(projectId).build();
@@ -307,12 +311,14 @@ class DebtServiceTest {
         ExpenseSplit.builder()
             .expense(Expense.builder().build())
             .amount(BigDecimal.valueOf(30))
+            .baseAmount(BigDecimal.valueOf(30))
             .settled(false)
             .build();
     ExpenseSplit userOwesFriend =
         ExpenseSplit.builder()
             .expense(Expense.builder().build())
             .amount(BigDecimal.valueOf(5))
+            .baseAmount(BigDecimal.valueOf(5))
             .settled(false)
             .build();
 
@@ -347,12 +353,14 @@ class DebtServiceTest {
         ExpenseSplit.builder()
             .expense(Expense.builder().build())
             .amount(BigDecimal.valueOf(5))
+            .baseAmount(BigDecimal.valueOf(5))
             .settled(false)
             .build();
     ExpenseSplit userOwesFriend =
         ExpenseSplit.builder()
             .expense(Expense.builder().build())
             .amount(BigDecimal.valueOf(30))
+            .baseAmount(BigDecimal.valueOf(30))
             .settled(false)
             .build();
 

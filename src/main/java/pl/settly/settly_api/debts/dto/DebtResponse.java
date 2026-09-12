@@ -11,6 +11,7 @@ public record DebtResponse(
     UUID fromUserId,
     UUID toUserId,
     BigDecimal amount,
+    String currency,
     boolean settled,
     Instant settledAt,
     Instant createdAt) {}

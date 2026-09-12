@@ -14,6 +14,9 @@ public interface ProjectMapper {
   // Filled in by ProjectService from one grouped query over expenses.
   @Mapping(target = "expenseCount", ignore = true)
   @Mapping(target = "totalAmount", ignore = true)
+  @Mapping(target = "totalCurrency", ignore = true)
+  @Mapping(source = "project.defaultCurrency", target = "defaultCurrency")
+  @Mapping(source = "project.defaultRateToBase", target = "defaultRateToBase")
   ProjectResponse toProjectResponse(Project project, long memberCount);
 
   @Mapping(source = "member.user.id", target = "userId")

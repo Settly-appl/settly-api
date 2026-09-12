@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -27,6 +28,7 @@ import org.springframework.data.domain.Sort;
 import pl.settly.settly_api.auth.user.model.User;
 import pl.settly.settly_api.auth.user.repository.UserRepository;
 import pl.settly.settly_api.common.exception.ResourceNotFoundException;
+import pl.settly.settly_api.common.money.CurrencyConversionService;
 import pl.settly.settly_api.expenses.dto.CreateExpenseItemRequest;
 import pl.settly.settly_api.expenses.dto.CreateExpenseRequest;
 import pl.settly.settly_api.expenses.dto.ExpenseItemResponse;
@@ -41,6 +43,7 @@ import pl.settly.settly_api.expenses.repository.ExpenseItemSplitRepository;
 import pl.settly.settly_api.expenses.repository.ExpenseRepository;
 import pl.settly.settly_api.expenses.service.ExpenseAccessService;
 import pl.settly.settly_api.expenses.service.ExpenseService;
+import pl.settly.settly_api.projects.model.Project;
 
 @ExtendWith(MockitoExtension.class)
 class ExpensesServiceTest {
@@ -54,6 +57,8 @@ class ExpensesServiceTest {
   @Mock pl.settly.settly_api.projects.repository.ProjectRepository projectRepository;
   @Mock pl.settly.settly_api.projects.service.ProjectAccessService projectAccessService;
   @Mock pl.settly.settly_api.expenses.repository.ExpenseSplitRepository expenseSplitRepository;
+
+  @Spy CurrencyConversionService currencyConversionService = new CurrencyConversionService();
 
   @InjectMocks ExpenseService expenseService;
 
@@ -69,8 +74,9 @@ class ExpensesServiceTest {
         new CreateExpenseRequest(
             "Test Shop",
             "Test Note",
-            "Test category",
             "PLN",
+            null,
+            "Test category",
             BigDecimal.valueOf(100.00),
             LocalDate.now(),
             projectId);
@@ -100,8 +106,9 @@ class ExpensesServiceTest {
         new CreateExpenseRequest(
             "Test Shop",
             "Test Note",
-            "Test category",
             "PLN",
+            null,
+            "Test category",
             BigDecimal.valueOf(100.00),
             LocalDate.now(),
             projectId);
@@ -112,6 +119,100 @@ class ExpensesServiceTest {
     assertThatThrownBy(() -> expenseService.createExpense(request, userId))
         .isInstanceOf(EntityNotFoundException.class)
         .hasMessage("User not found");
+  }
+
+  @Test
+  void should_convert_a_foreign_expense_at_the_supplied_rate() {
+    CreateExpenseRequest request =
+        new CreateExpenseRequest(
+            "Pret A Manger",
+            null,
+            "GBP",
+            new BigDecimal("4.85"),
+            "food",
+            new BigDecimal("12.50"),
+            LocalDate.now(),
+            null);
+    User user = new User();
+    user.setId(userId);
+    Expense expense = new Expense();
+
+    given(expenseMapper.toExpense(request)).willReturn(expense);
+    given(userRepository.getReferenceById(userId)).willReturn(user);
+    given(expenseRepository.save(expense)).willReturn(ownedExpense());
+    given(expenseMapper.toExpenseResponse(any(Expense.class))).willReturn(createDefaultResponse());
+
+    expenseService.createExpense(request, userId);
+
+    assertThat(expense.getCurrency()).isEqualTo("GBP");
+    assertThat(expense.getBaseCurrency()).isEqualTo("PLN");
+    assertThat(expense.getRateToBase()).isEqualByComparingTo("4.85");
+    // 12.50 x 4.85 = 60.625, to the grosz.
+    assertThat(expense.getBaseAmount()).isEqualByComparingTo("60.63");
+  }
+
+  @Test
+  void should_inherit_the_rate_from_the_project_when_the_expense_gives_none() {
+    CreateExpenseRequest request =
+        new CreateExpenseRequest(
+            "Tube", null, null, null, "transport", new BigDecimal("2.80"), LocalDate.now(),
+            projectId);
+    User user = new User();
+    user.setId(userId);
+    Expense expense = new Expense();
+    Project london =
+        Project.builder()
+            .defaultCurrency("GBP")
+            .defaultRateToBase(new BigDecimal("4.85"))
+            .build();
+
+    given(expenseMapper.toExpense(request)).willReturn(expense);
+    given(userRepository.getReferenceById(userId)).willReturn(user);
+    given(projectAccessService.isMember(projectId, userId)).willReturn(true);
+    given(projectRepository.getReferenceById(projectId)).willReturn(london);
+    given(expenseRepository.save(expense)).willReturn(ownedExpense());
+    given(expenseMapper.toExpenseResponse(any(Expense.class))).willReturn(createDefaultResponse());
+
+    expenseService.createExpense(request, userId);
+
+    assertThat(expense.getCurrency()).isEqualTo("GBP");
+    assertThat(expense.getRateToBase()).isEqualByComparingTo("4.85");
+    assertThat(expense.getBaseAmount()).isEqualByComparingTo("13.58");
+  }
+
+  @Test
+  void should_refuse_a_foreign_expense_with_no_rate_anywhere() {
+    // Booking GBP 10 as PLN 10 is invisible once it is in the database, so this
+    // has to fail at the door rather than default the rate to 1.
+    CreateExpenseRequest request =
+        new CreateExpenseRequest(
+            "Pub", null, "GBP", null, "food", new BigDecimal("9.00"), LocalDate.now(), null);
+    User user = new User();
+    user.setId(userId);
+
+    given(expenseMapper.toExpense(request)).willReturn(new Expense());
+    given(userRepository.getReferenceById(userId)).willReturn(user);
+
+    assertThatThrownBy(() -> expenseService.createExpense(request, userId))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("Exchange rate is required");
+  }
+
+  @Test
+  void should_reject_a_currency_the_app_cannot_display() {
+    CreateExpenseRequest request =
+        new CreateExpenseRequest(
+            "Souk", null, "XYZ", new BigDecimal("2"), "shopping", new BigDecimal("5.00"),
+            LocalDate.now(), null);
+    User user = new User();
+    user.setId(userId);
+
+    given(expenseMapper.toExpense(request)).willReturn(new Expense());
+    given(userRepository.getReferenceById(userId)).willReturn(user);
+
+    assertThatThrownBy(() -> expenseService.createExpense(request, userId))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("Unsupported currency");
   }
 
   // endregion
@@ -153,6 +254,7 @@ class ExpensesServiceTest {
             "Updated Shop",
             "Updated Note",
             "EUR",
+            new BigDecimal("4.30"),
             "food",
             BigDecimal.valueOf(150.00),
             LocalDate.now().plusDays(1),
@@ -164,8 +266,12 @@ class ExpensesServiceTest {
     Expense savedExpense = ownedExpense();
     ExpenseResponse expectedResponse = createDefaultResponse();
 
+    User owner = new User();
+    owner.setId(userId);
+
     given(expenseRepository.findByIdAndUser_Id(expenseId, userId))
         .willReturn(Optional.of(existingExpense));
+    given(userRepository.getReferenceById(userId)).willReturn(owner);
     given(projectAccessService.isMember(projectId, userId)).willReturn(true);
     given(expenseRepository.save(existingExpense)).willReturn(savedExpense);
     given(expenseSplitRepository.findByExpenseId(expenseId)).willReturn(List.of());
@@ -181,6 +287,10 @@ class ExpensesServiceTest {
     assertThat(existingExpense.getCategory()).isEqualTo("food");
     assertThat(existingExpense.getCurrency()).isEqualTo("EUR");
     assertThat(existingExpense.getTotalAmount()).isEqualByComparingTo("150.00");
+    // 150 EUR at 4.30 is 645 PLN — the figure every balance and total sums.
+    assertThat(existingExpense.getRateToBase()).isEqualByComparingTo("4.30");
+    assertThat(existingExpense.getBaseCurrency()).isEqualTo("PLN");
+    assertThat(existingExpense.getBaseAmount()).isEqualByComparingTo("645.00");
     verify(expenseRepository).save(existingExpense);
   }
 
@@ -560,6 +670,9 @@ class ExpensesServiceTest {
         "Test Note",
         "FOOD",
         "PLN",
+        BigDecimal.valueOf(100.00),
+        "PLN",
+        BigDecimal.ONE,
         BigDecimal.valueOf(100.00),
         false,
         LocalDate.now(),

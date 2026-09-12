@@ -44,9 +44,14 @@ public interface ExpenseRepository extends JpaRepository<Expense, UUID> {
   @Query("UPDATE Expense e SET e.project = null WHERE e.project.id = :projectId")
   void detachFromProject(@Param("projectId") UUID projectId);
 
-  /** Expense count and total per project, for a user's project list — one query, not an N+1. */
+  /**
+   * Expense count and total per project, for a user's project list — one query, not an N+1.
+   *
+   * <p>Totals the converted amount: a trip part in pounds and part in zloty has no single native
+   * total, so the figure is in the base currency the expenses were converted into.
+   */
   @Query(
-      "SELECT e.project.id AS projectId, COUNT(e) AS expenseCount, SUM(e.totalAmount) AS total"
+      "SELECT e.project.id AS projectId, COUNT(e) AS expenseCount, SUM(e.baseAmount) AS total"
           + " FROM Expense e"
           + " WHERE e.project.id IN :projectIds"
           + " GROUP BY e.project.id")

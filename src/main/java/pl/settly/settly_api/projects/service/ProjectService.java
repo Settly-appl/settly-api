@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pl.settly.settly_api.auth.user.repository.UserRepository;
 import pl.settly.settly_api.common.exception.ResourceNotFoundException;
+import pl.settly.settly_api.common.money.CurrencyConversionService;
 import pl.settly.settly_api.debts.repository.DebtRepository;
 import pl.settly.settly_api.expenses.dto.ProjectExpenseTotals;
 import pl.settly.settly_api.expenses.repository.ExpenseRepository;
@@ -34,6 +35,7 @@ public class ProjectService {
   private final ProjectMapper projectMapper;
   private final ExpenseRepository expenseRepository;
   private final DebtRepository debtRepository;
+  private final CurrencyConversionService currencyConversionService;
 
   public ProjectService(
       ProjectRepository projectRepository,
@@ -42,7 +44,8 @@ public class ProjectService {
       FriendshipService friendshipService,
       ProjectMapper projectMapper,
       ExpenseRepository expenseRepository,
-      DebtRepository debtRepository) {
+      DebtRepository debtRepository,
+      CurrencyConversionService currencyConversionService) {
     this.projectRepository = projectRepository;
     this.projectMemberRepository = projectMemberRepository;
     this.userRepository = userRepository;
@@ -50,6 +53,7 @@ public class ProjectService {
     this.projectMapper = projectMapper;
     this.expenseRepository = expenseRepository;
     this.debtRepository = debtRepository;
+    this.currencyConversionService = currencyConversionService;
   }
 
   @Transactional
@@ -59,6 +63,8 @@ public class ProjectService {
             Project.builder()
                 .name(request.name())
                 .description(request.description())
+                .defaultCurrency(normalizeDefaultCurrency(request.defaultCurrency()))
+                .defaultRateToBase(request.defaultRateToBase())
                 .projectOwner(userRepository.getReferenceById(userId))
                 .build());
 
@@ -68,7 +74,7 @@ public class ProjectService {
             .user(userRepository.getReferenceById(userId))
             .build());
 
-    return projectMapper.toProjectResponse(project, 1);
+    return withTotals(projectMapper.toProjectResponse(project, 1), null, baseCurrencyOf(userId));
   }
 
   @Transactional(readOnly = true)
@@ -83,21 +89,43 @@ public class ProjectService {
         expenseRepository.sumByProject(projects.stream().map(Project::getId).toList()).stream()
             .collect(Collectors.toMap(ProjectExpenseTotals::getProjectId, t -> t));
 
+    String baseCurrency = baseCurrencyOf(userId);
+
     return projects.stream()
         .map(
             p ->
                 withTotals(
                     projectMapper.toProjectResponse(
                         p, projectMemberRepository.countByProjectId(p.getId())),
-                    totals.get(p.getId())))
+                    totals.get(p.getId()),
+                    baseCurrency))
         .toList();
   }
 
-  /** Attaches what a project has cost; a project with no expenses reads as 0. */
-  private ProjectResponse withTotals(ProjectResponse response, ProjectExpenseTotals totals) {
+  /**
+   * Attaches what a project has cost; a project with no expenses reads as 0. The figure is in the
+   * viewer's base currency — a trip paid part in pounds and part in zloty has no single native
+   * total, so the currency has to travel with the number.
+   */
+  private ProjectResponse withTotals(
+      ProjectResponse response, ProjectExpenseTotals totals, String baseCurrency) {
     return totals == null
-        ? response.withExpenses(0, BigDecimal.ZERO)
-        : response.withExpenses(totals.getExpenseCount(), totals.getTotal());
+        ? response.withExpenses(0, BigDecimal.ZERO, baseCurrency)
+        : response.withExpenses(totals.getExpenseCount(), totals.getTotal(), baseCurrency);
+  }
+
+  private String normalizeDefaultCurrency(String code) {
+    if (code == null || code.isBlank()) {
+      return null;
+    }
+    return currencyConversionService.normalize(code, null);
+  }
+
+  private String baseCurrencyOf(UUID userId) {
+    return userRepository
+        .findById(userId)
+        .map(u -> u.getBaseCurrency())
+        .orElse(CurrencyConversionService.DEFAULT_CURRENCY);
   }
 
   @Transactional(readOnly = true)
@@ -108,7 +136,8 @@ public class ProjectService {
             project, projectMemberRepository.countByProjectId(projectId));
 
     List<ProjectExpenseTotals> totals = expenseRepository.sumByProject(List.of(projectId));
-    return withTotals(response, totals.isEmpty() ? null : totals.get(0));
+    return withTotals(
+        response, totals.isEmpty() ? null : totals.get(0), baseCurrencyOf(userId));
   }
 
   @Transactional
@@ -124,9 +153,21 @@ public class ProjectService {
     if (request.status() != null) {
       project.setStatus(request.status());
     }
+    // A blank code clears the trip default rather than being read as "no change" —
+    // that is the only way to stop new expenses inheriting a currency.
+    if (request.defaultCurrency() != null) {
+      project.setDefaultCurrency(normalizeDefaultCurrency(request.defaultCurrency()));
+    }
+    if (request.defaultRateToBase() != null) {
+      project.setDefaultRateToBase(request.defaultRateToBase());
+    }
 
-    return projectMapper.toProjectResponse(
-        projectRepository.save(project), projectMemberRepository.countByProjectId(projectId));
+    List<ProjectExpenseTotals> totals = expenseRepository.sumByProject(List.of(projectId));
+    return withTotals(
+        projectMapper.toProjectResponse(
+            projectRepository.save(project), projectMemberRepository.countByProjectId(projectId)),
+        totals.isEmpty() ? null : totals.get(0),
+        baseCurrencyOf(userId));
   }
 
   @Transactional

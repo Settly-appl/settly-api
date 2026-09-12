@@ -18,11 +18,13 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 import pl.settly.settly_api.auth.user.model.User;
 import pl.settly.settly_api.auth.user.repository.UserRepository;
 import pl.settly.settly_api.common.exception.ResourceNotFoundException;
+import pl.settly.settly_api.common.money.CurrencyConversionService;
 import pl.settly.settly_api.expenses.dto.CreateExpenseSplitRequest;
 import pl.settly.settly_api.expenses.dto.ExpenseMapper;
 import pl.settly.settly_api.expenses.dto.ExpenseSplitResponse;
@@ -57,6 +59,8 @@ class ExpenseSplitServiceTest {
   @Mock ExpenseAccessService expenseAccessService;
   @Mock ApplicationEventPublisher eventPublisher;
 
+  @Spy CurrencyConversionService currencyConversionService = new CurrencyConversionService();
+
   @InjectMocks ExpenseSplitService expenseSplitService;
 
   @Captor ArgumentCaptor<List<ExpenseSplit>> splitsCaptor;
@@ -68,9 +72,25 @@ class ExpenseSplitServiceTest {
   private final UUID expenseId = UUID.randomUUID();
 
   private Expense createExpense(BigDecimal totalAmount) {
+    return createExpense(totalAmount, "PLN", BigDecimal.ONE);
+  }
+
+  /** An expense in {@code currency}, converted to the owner's PLN base at {@code rateToBase}. */
+  private Expense createExpense(BigDecimal totalAmount, String currency, BigDecimal rateToBase) {
     User owner = new User();
     owner.setId(userId);
-    return Expense.builder().id(expenseId).user(owner).totalAmount(totalAmount).build();
+    return Expense.builder()
+        .id(expenseId)
+        .user(owner)
+        .totalAmount(totalAmount)
+        .currency(currency)
+        .baseCurrency("PLN")
+        .rateToBase(rateToBase)
+        .baseAmount(
+            totalAmount == null
+                ? null
+                : totalAmount.multiply(rateToBase).setScale(2, java.math.RoundingMode.HALF_UP))
+        .build();
   }
 
   private User createFriendUser(UUID id) {
@@ -88,6 +108,9 @@ class ExpenseSplitServiceTest {
         "testuser",
         ExpenseSplitType.EQUAL,
         BigDecimal.TEN,
+        "PLN",
+        BigDecimal.TEN,
+        "PLN",
         false,
         null,
         false,
@@ -175,6 +198,63 @@ class ExpenseSplitServiceTest {
     assertThat(ownerSplit.getAmount()).isEqualByComparingTo("50.00");
     assertThat(friendSplit.getAmount()).isEqualByComparingTo("50.00");
     assertThat(ownerSplit.getExpenseSplitType()).isEqualTo(ExpenseSplitType.EQUAL);
+    // Same currency as the base: the converted share is the share.
+    assertThat(ownerSplit.getBaseAmount()).isEqualByComparingTo("50.00");
+    assertThat(friendSplit.getBaseAmount()).isEqualByComparingTo("50.00");
+  }
+
+  @Test
+  void should_value_a_foreign_split_in_the_base_currency() {
+    // GBP 25.01 at 4.85 is PLN 121.30 (.2985 rounds up). Halved in pounds that is
+    // 12.51 / 12.50; converted separately those are 60.67 + 60.63 = 121.30 exactly.
+    Expense expense = createExpense(new BigDecimal("25.01"), "GBP", new BigDecimal("4.85"));
+    User friend = createFriendUser(friendId);
+
+    given(expenseRepository.findByIdAndUser_Id(expenseId, userId)).willReturn(Optional.of(expense));
+    given(expenseSplitRepository.existsByExpenseId(expenseId)).willReturn(false);
+    given(friendshipService.areFriends(userId, friendId)).willReturn(true);
+    given(userRepository.getReferenceById(friendId)).willReturn(friend);
+    given(expenseSplitRepository.saveAll(anyList())).willAnswer(inv -> inv.getArgument(0));
+    given(expenseMapper.toExpenseSplitResponse(any())).willReturn(dummyResponse());
+
+    CreateExpenseSplitRequest request =
+        new CreateExpenseSplitRequest(
+            ExpenseSplitType.EQUAL, List.of(new SplitParticipant(friendId, null)), null);
+
+    expenseSplitService.createSplit(expenseId, request, userId);
+
+    verify(expenseSplitRepository).saveAll(splitsCaptor.capture());
+    List<ExpenseSplit> saved = splitsCaptor.getValue();
+
+    // The shares must add up to exactly what the expense converted to, or every
+    // balance built on them drifts a grosz at a time.
+    BigDecimal totalBase =
+        saved.stream().map(ExpenseSplit::getBaseAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+    assertThat(totalBase).isEqualByComparingTo(expense.getBaseAmount());
+    assertThat(totalBase).isEqualByComparingTo("121.30");
+    // Shares stay owed in the currency they were agreed in.
+    assertThat(saved.stream().map(ExpenseSplit::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add))
+        .isEqualByComparingTo("25.01");
+  }
+
+  @Test
+  void should_refuse_a_split_between_different_base_currencies() {
+    Expense expense = createExpense(BigDecimal.valueOf(100));
+    User friend = createFriendUser(friendId);
+    friend.setBaseCurrency("EUR");
+
+    given(expenseRepository.findByIdAndUser_Id(expenseId, userId)).willReturn(Optional.of(expense));
+    given(expenseSplitRepository.existsByExpenseId(expenseId)).willReturn(false);
+    given(friendshipService.areFriends(userId, friendId)).willReturn(true);
+    given(userRepository.findAllById(List.of(friendId))).willReturn(List.of(friend));
+
+    CreateExpenseSplitRequest request =
+        new CreateExpenseSplitRequest(
+            ExpenseSplitType.EQUAL, List.of(new SplitParticipant(friendId, null)), null);
+
+    assertThatThrownBy(() -> expenseSplitService.createSplit(expenseId, request, userId))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("base currency");
   }
 
   @Test

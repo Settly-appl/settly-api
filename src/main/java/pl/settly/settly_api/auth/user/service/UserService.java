@@ -11,7 +11,10 @@ import pl.settly.settly_api.auth.user.model.User;
 import pl.settly.settly_api.auth.user.model.UserIdentityProvider;
 import pl.settly.settly_api.auth.user.repository.UserIdentityProviderRepository;
 import pl.settly.settly_api.auth.user.repository.UserRepository;
+import pl.settly.settly_api.auth.user.dto.UpdateUserSettingsRequest;
+import pl.settly.settly_api.auth.user.dto.UserSettingsResponse;
 import pl.settly.settly_api.common.exception.ResourceNotFoundException;
+import pl.settly.settly_api.common.money.CurrencyConversionService;
 
 @Service
 public class UserService {
@@ -19,14 +22,45 @@ public class UserService {
   private final UserRepository userRepository;
   private final UserIdentityProviderRepository identityProviderRepository;
   private final UserMapper userMapper;
+  private final CurrencyConversionService currencyConversionService;
 
   public UserService(
       UserRepository userRepository,
       UserIdentityProviderRepository identityProviderRepository,
-      UserMapper userMapper) {
+      UserMapper userMapper,
+      CurrencyConversionService currencyConversionService) {
     this.userRepository = userRepository;
     this.identityProviderRepository = identityProviderRepository;
     this.userMapper = userMapper;
+    this.currencyConversionService = currencyConversionService;
+  }
+
+  public UserSettingsResponse getSettings(UUID userId) {
+    User user =
+        userRepository
+            .findById(userId)
+            .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+    return new UserSettingsResponse(
+        user.getBaseCurrency(), CurrencyConversionService.SUPPORTED.stream().sorted().toList());
+  }
+
+  /**
+   * Changes the currency this user's balances and totals are reported in.
+   *
+   * <p>Past expenses keep the base currency and rate they were created with, so the change is not
+   * retroactive: what a trip cost is a fact about the day it happened, and restating it from a rate
+   * typed months later would be a guess presented as history.
+   */
+  @Transactional
+  public UserSettingsResponse updateSettings(UUID userId, UpdateUserSettingsRequest request) {
+    User user =
+        userRepository
+            .findById(userId)
+            .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+    user.setBaseCurrency(currencyConversionService.normalize(request.baseCurrency(), null));
+    userRepository.save(user);
+    return new UserSettingsResponse(
+        user.getBaseCurrency(), CurrencyConversionService.SUPPORTED.stream().sorted().toList());
   }
 
   @Cacheable(value = "knownUsers", key = "#sub.toString()")

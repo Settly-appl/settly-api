@@ -9,6 +9,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import pl.settly.settly_api.auth.user.model.User;
+import pl.settly.settly_api.auth.user.repository.UserRepository;
+import pl.settly.settly_api.common.money.CurrencyConversionService;
 import pl.settly.settly_api.expenses.dto.DebtorSummary;
 import pl.settly.settly_api.expenses.repository.ExpenseSplitRepository;
 
@@ -27,14 +30,17 @@ public class SettlementReminderJob {
 
   private final ExpenseSplitRepository expenseSplitRepository;
   private final NotificationService notificationService;
+  private final UserRepository userRepository;
   private final boolean enabled;
 
   public SettlementReminderJob(
       ExpenseSplitRepository expenseSplitRepository,
       NotificationService notificationService,
+      UserRepository userRepository,
       @Value("${settly.reminders.settlement.enabled:true}") boolean enabled) {
     this.expenseSplitRepository = expenseSplitRepository;
     this.notificationService = notificationService;
+    this.userRepository = userRepository;
     this.enabled = enabled;
   }
 
@@ -66,10 +72,24 @@ public class SettlementReminderJob {
               ? BigDecimal.ZERO
               : debtor.getTotal().setScale(2, RoundingMode.HALF_UP);
 
+      // The total is already in the debtor's own base currency: a share is converted into
+      // the expense owner's base, and a split between people with different bases is refused.
+      String currency =
+          userRepository
+              .findById(debtor.getUserId())
+              .map(User::getBaseCurrency)
+              .orElse(CurrencyConversionService.DEFAULT_CURRENCY);
+
       notificationService.sendToUser(
           debtor.getUserId(),
           "Masz nierozliczone wydatki",
-          "Do rozliczenia: " + expensesPlural(count) + " na łączną kwotę " + total + " zł.",
+          "Do rozliczenia: "
+              + expensesPlural(count)
+              + " na łączną kwotę "
+              + total
+              + " "
+              + currencySymbol(currency)
+              + ".",
           Map.of("type", "SETTLEMENT_REMINDER"));
     }
 
@@ -92,5 +112,10 @@ public class SettlementReminderJob {
       return count + " wydatki";
     }
     return count + " wydatków";
+  }
+
+  /** What Poles actually write after an amount; anything else reads better as its code. */
+  private static String currencySymbol(String currency) {
+    return "PLN".equals(currency) ? "zł" : currency;
   }
 }

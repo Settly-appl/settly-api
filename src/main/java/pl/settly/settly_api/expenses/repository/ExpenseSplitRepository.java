@@ -34,18 +34,24 @@ public interface ExpenseSplitRepository extends JpaRepository<ExpenseSplit, UUID
    * owner's own row is excluded — nobody owes it. Shares whose user already declared "I paid" are
    * skipped too: nagging someone who claims to have paid (and is waiting for the owner to confirm)
    * would just be noise. Drives the daily settle-up reminder.
+   *
+   * <p>Sums {@code baseAmount}, not {@code amount}: the latter would add pounds to zloty and
+   * reminds people of a number that is not any amount of money.
    */
   @Query(
-      "SELECT s.user.id AS userId, COUNT(s) AS unsettledCount, SUM(s.amount) AS total"
+      "SELECT s.user.id AS userId, COUNT(s) AS unsettledCount, SUM(s.baseAmount) AS total"
           + " FROM ExpenseSplit s"
           + " WHERE s.settled = false AND s.declaredPaid = false"
           + " AND s.user.id <> s.expense.user.id"
           + " GROUP BY s.user.id")
   List<DebtorSummary> findDebtorsWithUnsettledShares();
 
-  /** Unsettled amounts other users owe the given user (their splits on the user's expenses). */
+  /**
+   * Unsettled amounts other users owe the given user (their splits on the user's expenses), in the
+   * user's base currency — shares spent abroad are netted at the rate stored on their expense.
+   */
   @Query(
-      "SELECT s.user.id AS userId, SUM(s.amount) AS total FROM ExpenseSplit s"
+      "SELECT s.user.id AS userId, SUM(s.baseAmount) AS total FROM ExpenseSplit s"
           + " WHERE s.expense.user.id = :userId AND s.user.id <> :userId AND s.settled = false"
           + " AND (:projectId IS NULL OR s.expense.project.id = :projectId)"
           + " GROUP BY s.user.id")
@@ -54,7 +60,7 @@ public interface ExpenseSplitRepository extends JpaRepository<ExpenseSplit, UUID
 
   /** Unsettled amounts the given user owes other users (their splits on others' expenses). */
   @Query(
-      "SELECT s.expense.user.id AS userId, SUM(s.amount) AS total FROM ExpenseSplit s"
+      "SELECT s.expense.user.id AS userId, SUM(s.baseAmount) AS total FROM ExpenseSplit s"
           + " WHERE s.user.id = :userId AND s.expense.user.id <> :userId AND s.settled = false"
           + " AND (:projectId IS NULL OR s.expense.project.id = :projectId)"
           + " GROUP BY s.expense.user.id")
