@@ -51,6 +51,29 @@ public class Expense {
   @Column(name = "total_amount", precision = 10, scale = 2, nullable = true)
   private BigDecimal totalAmount;
 
+  /**
+   * The user's base currency at the moment the expense was created, snapshotted so changing the
+   * base later does not restate history.
+   */
+  @Column(name = "base_currency", length = 3, nullable = false)
+  private String baseCurrency;
+
+  /**
+   * How many base units one unit of {@link #currency} is worth - the rate the user actually got
+   * when they bought the foreign currency, not a market rate. 1 GBP = 4.85 PLN is 4.85. Always 1
+   * when the expense is already in the base currency.
+   */
+  @Column(name = "rate_to_base", precision = 18, scale = 8, nullable = false)
+  private BigDecimal rateToBase;
+
+  /**
+   * {@link #totalAmount} converted at {@link #rateToBase}. Stored rather than derived so balances
+   * and project totals are a plain SQL sum, and so a later rate change cannot silently restate what
+   * a past trip cost.
+   */
+  @Column(name = "base_amount", precision = 12, scale = 2, nullable = true)
+  private BigDecimal baseAmount;
+
   @Builder.Default
   @Column(name = "scanned", nullable = true)
   private Boolean isScanned = false;

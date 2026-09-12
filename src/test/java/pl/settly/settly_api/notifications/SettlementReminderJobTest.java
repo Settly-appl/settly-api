@@ -26,9 +26,11 @@ class SettlementReminderJobTest {
 
   @Mock ExpenseSplitRepository expenseSplitRepository;
   @Mock NotificationService notificationService;
+  @Mock pl.settly.settly_api.auth.user.repository.UserRepository userRepository;
 
   private SettlementReminderJob job(boolean enabled) {
-    return new SettlementReminderJob(expenseSplitRepository, notificationService, enabled);
+    return new SettlementReminderJob(
+        expenseSplitRepository, notificationService, userRepository, enabled);
   }
 
   private DebtorSummary debtor(UUID userId, long count, String total) {
@@ -62,7 +64,7 @@ class SettlementReminderJobTest {
     verify(notificationService)
         .sendToUser(eq(debtorId), eq("Masz nierozliczone wydatki"), body.capture(), any());
 
-    assertThat(body.getValue()).contains("3 wydatki").contains("42.50");
+    assertThat(body.getValue()).contains("3 wydatki").contains("42.50").contains("zł");
   }
 
   @Test

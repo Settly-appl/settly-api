@@ -14,8 +14,10 @@ import java.util.stream.Collectors;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import pl.settly.settly_api.auth.user.model.User;
 import pl.settly.settly_api.auth.user.repository.UserRepository;
 import pl.settly.settly_api.common.exception.ResourceNotFoundException;
+import pl.settly.settly_api.common.money.CurrencyConversionService;
 import pl.settly.settly_api.common.exception.SettlementLockedException;
 import pl.settly.settly_api.expenses.dto.*;
 import pl.settly.settly_api.expenses.model.Expense;
@@ -43,6 +45,7 @@ public class ExpenseSplitService {
   private final UserRepository userRepository;
   private final ExpenseAccessService expenseAccessService;
   private final ApplicationEventPublisher eventPublisher;
+  private final CurrencyConversionService currencyConversionService;
 
   private final ExpenseMapper expenseMapper;
 
@@ -55,6 +58,7 @@ public class ExpenseSplitService {
       UserRepository userRepository,
       ExpenseAccessService expenseAccessService,
       ApplicationEventPublisher eventPublisher,
+      CurrencyConversionService currencyConversionService,
       ExpenseMapper expenseMapper) {
     this.friendshipService = friendshipService;
     this.expenseSplitRepository = expenseSplitRepository;
@@ -65,6 +69,7 @@ public class ExpenseSplitService {
     this.userRepository = userRepository;
     this.expenseAccessService = expenseAccessService;
     this.eventPublisher = eventPublisher;
+    this.currencyConversionService = currencyConversionService;
   }
 
   @Transactional
@@ -89,6 +94,8 @@ public class ExpenseSplitService {
                     "User " + participant.friendId() + " is not requesting user's friend.");
               }
             });
+
+    requireSharedBaseCurrency(expense, createExpenseSplitRequest);
 
     List<ExpenseSplit> expenseSplits = new ArrayList<>();
     int totalParticipants = createExpenseSplitRequest.participants().size() + 1;
@@ -271,6 +278,8 @@ public class ExpenseSplitService {
         throw new IllegalArgumentException(
             "Unsupported split type: " + createExpenseSplitRequest.expenseSplitType());
     }
+
+    applyBaseAmounts(expense, expenseSplits, userId);
 
     List<ExpenseSplit> savedSplits = expenseSplitRepository.saveAll(expenseSplits);
 
@@ -536,5 +545,63 @@ public class ExpenseSplitService {
     return expenseSplitRepository.findByUserIdAndSettledFalse(userId).stream()
         .map(expenseMapper::toExpenseSplitResponse)
         .toList();
+  }
+
+  /**
+   * Values each share in the expense owner's base currency, which is what every balance query sums
+   * -- adding a pound share to a zloty share would otherwise produce a number that is not money.
+   *
+   * <p>Converting each share on its own can drift a grosz from the expense's converted total, so
+   * the shares are apportioned against it and the difference goes to the payer, exactly as the odd
+   * grosz of the split itself already does.
+   */
+  private void applyBaseAmounts(Expense expense, List<ExpenseSplit> splits, UUID payerId) {
+    int payerIndex = 0;
+    for (int i = 0; i < splits.size(); i++) {
+      if (splits.get(i).getUser().getId().equals(payerId)) {
+        payerIndex = i;
+        break;
+      }
+    }
+
+    List<BigDecimal> baseAmounts =
+        currencyConversionService.apportionToBase(
+            splits.stream().map(ExpenseSplit::getAmount).toList(),
+            expense.getRateToBase(),
+            expense.getBaseAmount(),
+            payerIndex);
+
+    for (int i = 0; i < splits.size(); i++) {
+      splits.get(i).setBaseAmount(baseAmounts.get(i));
+    }
+  }
+
+  /**
+   * Refuses a split between people who keep their books in different base currencies.
+   *
+   * <p>A share is stored converted into the expense owner's base, and balances net those shares
+   * across everyone. If two people disagreed about what base means, the netting would add euro to
+   * zloty and produce a figure that is not any amount of money -- and unlike a wrong rate, nothing
+   * downstream could detect it. Converting between the two bases instead would need a second rate
+   * nobody has supplied, so this fails loudly at the moment the shared obligation is created.
+   */
+  private void requireSharedBaseCurrency(Expense expense, CreateExpenseSplitRequest request) {
+    String ownerBase = expense.getBaseCurrency();
+    List<UUID> participantIds =
+        request.participants().stream().map(SplitParticipant::friendId).toList();
+
+    for (User participant : userRepository.findAllById(participantIds)) {
+      String participantBase = participant.getBaseCurrency();
+      if (participantBase != null && !participantBase.equals(ownerBase)) {
+        throw new IllegalArgumentException(
+            "Cannot split with "
+                + participant.getUsername()
+                + ": their base currency is "
+                + participantBase
+                + " and yours is "
+                + ownerBase
+                + ". Balances between you would not add up.");
+      }
+    }
   }
 }

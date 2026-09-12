@@ -30,6 +30,10 @@ public class User {
   @Column(name = "avatar_url")
   private String avatarUrl;
 
+  /** The currency this user's balances and totals are reported in. */
+  @Column(name = "base_currency", nullable = false)
+  private String baseCurrency = "PLN";
+
   @Column(name = "last_login")
   private Instant lastLogin;
 

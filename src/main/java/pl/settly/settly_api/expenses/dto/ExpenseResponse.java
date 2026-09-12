@@ -26,6 +26,11 @@ import java.util.UUID;
  *   <li>{@code declared} — the viewer's own unsettled share carries such a claim. Always false for
  *       the owner and bystanders.
  * </ul>
+ *
+ * <p>Money comes in two denominations: {@code totalAmount}/{@code currency} is what was actually
+ * spent, {@code baseAmount}/{@code baseCurrency} the same sum converted at {@code rateToBase} —
+ * the rate the payer got when they bought the currency. They are equal, and the rate 1, for an
+ * expense already in the base currency.
  */
 public record ExpenseResponse(
     UUID id,
@@ -36,6 +41,9 @@ public record ExpenseResponse(
     String category,
     String currency,
     BigDecimal totalAmount,
+    String baseCurrency,
+    BigDecimal rateToBase,
+    BigDecimal baseAmount,
     Boolean isScanned,
     LocalDate date,
     Instant createdAt,
@@ -62,6 +70,9 @@ public record ExpenseResponse(
         category,
         currency,
         totalAmount,
+        baseCurrency,
+        rateToBase,
+        baseAmount,
         isScanned,
         date,
         createdAt,

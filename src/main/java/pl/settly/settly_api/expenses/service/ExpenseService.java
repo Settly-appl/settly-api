@@ -1,5 +1,6 @@
 package pl.settly.settly_api.expenses.service;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -11,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import pl.settly.settly_api.auth.user.model.User;
 import pl.settly.settly_api.auth.user.repository.UserRepository;
 import pl.settly.settly_api.common.exception.ResourceNotFoundException;
+import pl.settly.settly_api.common.money.CurrencyConversionService;
 import pl.settly.settly_api.expenses.dto.*;
 import pl.settly.settly_api.expenses.model.Expense;
 import pl.settly.settly_api.expenses.model.ExpenseItem;
@@ -35,6 +37,7 @@ public class ExpenseService {
   private final ExpenseAccessService expenseAccessService;
   private final ProjectRepository projectRepository;
   private final ProjectAccessService projectAccessService;
+  private final CurrencyConversionService currencyConversionService;
 
   public ExpenseService(
       ExpenseRepository expenseRepository,
@@ -45,7 +48,8 @@ public class ExpenseService {
       ExpenseSplitRepository expenseSplitRepository,
       ExpenseAccessService expenseAccessService,
       ProjectRepository projectRepository,
-      ProjectAccessService projectAccessService) {
+      ProjectAccessService projectAccessService,
+      CurrencyConversionService currencyConversionService) {
     this.expenseRepository = expenseRepository;
     this.expenseItemRepository = expenseItemRepository;
     this.expenseItemSplitRepository = expenseItemSplitRepository;
@@ -55,16 +59,41 @@ public class ExpenseService {
     this.expenseAccessService = expenseAccessService;
     this.projectRepository = projectRepository;
     this.projectAccessService = projectAccessService;
+    this.currencyConversionService = currencyConversionService;
   }
 
+  @Transactional
   public ExpenseResponse createExpense(CreateExpenseRequest request, UUID userId) {
     Expense expense = expenseMapper.toExpense(request);
     User user = userRepository.getReferenceById(userId);
+    Project project = resolveProject(request.projectId(), userId);
     expense.setUser(user);
-    expense.setProject(resolveProject(request.projectId(), userId));
+    expense.setProject(project);
+    applyConversion(expense, request, project, user);
     Expense savedExpense = expenseRepository.save(expense);
     // A brand-new expense has no splits yet.
     return withSettlement(savedExpense, List.of(), userId);
+  }
+
+  /**
+   * Stamps the expense with the currency it was spent in, the rate the payer got for it, and the
+   * resulting amount in their base currency.
+   */
+  private void applyConversion(
+      Expense expense, CreateExpenseRequest request, Project project, User user) {
+    CurrencyConversionService.Conversion conversion =
+        currencyConversionService.resolve(
+            request.currency(),
+            request.rateToBase(),
+            request.totalAmount(),
+            project == null ? null : project.getDefaultCurrency(),
+            project == null ? null : project.getDefaultRateToBase(),
+            user.getBaseCurrency());
+
+    expense.setCurrency(conversion.currency());
+    expense.setBaseCurrency(conversion.baseCurrency());
+    expense.setRateToBase(conversion.rateToBase());
+    expense.setBaseAmount(conversion.baseAmount());
   }
 
   /** Resolves the project for an expense, ensuring the user is a member of it. */
@@ -165,21 +194,59 @@ public class ExpenseService {
         .withSettlement(splitCount, settledCount, settled, canSettle, declaredCount, declared);
   }
 
+  @Transactional
   public ExpenseResponse updateExpense(UUID expenseId, UUID userId, CreateExpenseRequest request) {
     Expense expense =
         expenseRepository
             .findByIdAndUser_Id(expenseId, userId)
             .orElseThrow(() -> new ResourceNotFoundException("Expense does not exist"));
+    Project project = resolveProject(request.projectId(), userId);
     expense.setShop(request.shop());
     expense.setNote(request.note());
     expense.setCategory(request.category());
-    expense.setCurrency(request.currency());
     expense.setTotalAmount(request.totalAmount());
     expense.setDate(request.date());
-    expense.setProject(resolveProject(request.projectId(), userId));
+    expense.setProject(project);
+    applyConversion(expense, request, project, userRepository.getReferenceById(userId));
 
     Expense saved = expenseRepository.save(expense);
-    return withSettlement(saved, expenseSplitRepository.findByExpenseId(expenseId), userId);
+
+    // The amount, the currency or the rate may all have moved. Existing shares are still
+    // owed in the expense's own currency, but what they are worth in base has changed --
+    // and every balance sums that, so leaving it stale would quietly misstate who owes what.
+    List<ExpenseSplit> splits = expenseSplitRepository.findByExpenseId(expenseId);
+    reapportionSplits(saved, splits, userId);
+
+    return withSettlement(saved, splits, userId);
+  }
+
+  /**
+   * Recomputes the base-currency value of an expense's shares, keeping them adding up to exactly
+   * the expense's converted total. The odd grosz goes to the payer, as when the split was created.
+   */
+  private void reapportionSplits(Expense expense, List<ExpenseSplit> splits, UUID ownerId) {
+    if (splits.isEmpty()) {
+      return;
+    }
+    int payerIndex = 0;
+    for (int i = 0; i < splits.size(); i++) {
+      if (splits.get(i).getUser().getId().equals(ownerId)) {
+        payerIndex = i;
+        break;
+      }
+    }
+
+    List<BigDecimal> baseAmounts =
+        currencyConversionService.apportionToBase(
+            splits.stream().map(ExpenseSplit::getAmount).toList(),
+            expense.getRateToBase(),
+            expense.getBaseAmount(),
+            payerIndex);
+
+    for (int i = 0; i < splits.size(); i++) {
+      splits.get(i).setBaseAmount(baseAmounts.get(i));
+    }
+    expenseSplitRepository.saveAll(splits);
   }
 
   @Transactional
@@ -284,6 +351,10 @@ public class ExpenseService {
             .findById(expenseId)
             .orElseThrow(() -> new ResourceNotFoundException("Expense does not exist"));
 
-    return new ExpenseUserShareResponse(userSplit.getAmount().doubleValue(), expense.getCurrency());
+    return new ExpenseUserShareResponse(
+        userSplit.getAmount().doubleValue(),
+        expense.getCurrency(),
+        userSplit.getBaseAmount() == null ? null : userSplit.getBaseAmount().doubleValue(),
+        expense.getBaseCurrency());
   }
 }

@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import pl.settly.settly_api.auth.user.model.User;
 import pl.settly.settly_api.auth.user.repository.UserRepository;
 import pl.settly.settly_api.common.exception.ResourceNotFoundException;
+import pl.settly.settly_api.common.money.CurrencyConversionService;
 import pl.settly.settly_api.debts.dto.BalanceAggregate;
 import pl.settly.settly_api.debts.dto.DebtResponse;
 import pl.settly.settly_api.debts.dto.FriendBalanceResponse;
@@ -45,6 +46,10 @@ public class DebtService {
   /**
    * Net balance between the user and every counterparty, derived live from unsettled splits. A
    * positive amount means the counterparty owes the user. Zero balances are omitted.
+   *
+   * <p>Shares spent in other currencies are netted through each expense's stored rate, so the
+   * result is a single figure in the user's base currency rather than one balance per currency. The
+   * rate is the one the payer actually got, which is also the honest basis for what is owed.
    */
   @Transactional(readOnly = true)
   public List<FriendBalanceResponse> getBalances(UUID userId, UUID projectId) {
@@ -71,6 +76,8 @@ public class DebtService {
         userRepository.findAllById(counterpartyIds).stream()
             .collect(Collectors.toMap(User::getId, u -> u));
 
+    String baseCurrency = baseCurrencyOf(userId);
+
     List<FriendBalanceResponse> balances = new ArrayList<>();
     for (UUID counterpartyId : counterpartyIds) {
       User user = users.get(counterpartyId);
@@ -83,7 +90,8 @@ public class DebtService {
               user.getDisplayName(),
               user.getUsername(),
               user.getAvatarUrl(),
-              net.get(counterpartyId)));
+              net.get(counterpartyId),
+              baseCurrency));
     }
     return balances;
   }
@@ -113,8 +121,8 @@ public class DebtService {
       throw new ResourceNotFoundException("No outstanding balance to settle");
     }
 
-    BigDecimal owedToCreditor = sumAmounts(debtorOwes);
-    BigDecimal owedToDebtor = sumAmounts(creditorOwes);
+    BigDecimal owedToCreditor = sumBaseAmounts(debtorOwes);
+    BigDecimal owedToDebtor = sumBaseAmounts(creditorOwes);
     BigDecimal net = owedToCreditor.subtract(owedToDebtor);
 
     if (net.compareTo(BigDecimal.ZERO) <= 0) {
@@ -131,6 +139,7 @@ public class DebtService {
                 .toUser(userRepository.getReferenceById(creditorId))
                 .project(projectId == null ? null : projectRepository.getReferenceById(projectId))
                 .amount(net)
+                .currency(baseCurrencyOf(creditorId))
                 .settled(true)
                 .settledAt(now)
                 .build());
@@ -181,8 +190,21 @@ public class DebtService {
     debtRepository.delete(debt);
   }
 
-  private static BigDecimal sumAmounts(List<ExpenseSplit> splits) {
-    return splits.stream().map(ExpenseSplit::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+  /**
+   * Sums shares in the base currency. Summing {@code amount} would add pounds to zloty, and the
+   * settle-up would hand over a number that is not any amount of money.
+   */
+  private static BigDecimal sumBaseAmounts(List<ExpenseSplit> splits) {
+    return splits.stream()
+        .map(ExpenseSplit::getBaseAmount)
+        .reduce(BigDecimal.ZERO, BigDecimal::add);
+  }
+
+  private String baseCurrencyOf(UUID userId) {
+    return userRepository
+        .findById(userId)
+        .map(User::getBaseCurrency)
+        .orElse(CurrencyConversionService.DEFAULT_CURRENCY);
   }
 
   @Transactional(readOnly = true)
@@ -197,6 +219,7 @@ public class DebtService {
         debt.getFromUser().getId(),
         debt.getToUser().getId(),
         debt.getAmount(),
+        debt.getCurrency(),
         Boolean.TRUE.equals(debt.getSettled()),
         debt.getSettledAt(),
         debt.getCreatedAt());

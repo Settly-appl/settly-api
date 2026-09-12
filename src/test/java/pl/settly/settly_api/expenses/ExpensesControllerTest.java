@@ -82,6 +82,9 @@ class ExpensesControllerTest {
             "FOOD",
             "PLN",
             BigDecimal.valueOf(100.00),
+            "PLN",
+            BigDecimal.ONE,
+            BigDecimal.valueOf(100.00),
             false,
             LocalDate.now(),
             Instant.now(),
@@ -101,6 +104,9 @@ class ExpensesControllerTest {
             "Updated Note",
             "SHOPPING", // Dodana kategoria
             "PLN", // Dodana waluta
+            BigDecimal.valueOf(150.00),
+            "PLN",
+            BigDecimal.ONE,
             BigDecimal.valueOf(150.00),
             false,
             LocalDate.now(),

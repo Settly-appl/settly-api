@@ -16,9 +16,11 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import pl.settly.settly_api.auth.user.model.User;
 import pl.settly.settly_api.auth.user.repository.UserRepository;
+import pl.settly.settly_api.common.money.CurrencyConversionService;
 import pl.settly.settly_api.common.exception.ResourceNotFoundException;
 import pl.settly.settly_api.friendships.service.FriendshipService;
 import pl.settly.settly_api.projects.dto.AddProjectMemberRequest;
@@ -44,6 +46,8 @@ class ProjectServiceTest {
   @Mock ProjectMapper projectMapper;
   @Mock pl.settly.settly_api.expenses.repository.ExpenseRepository expenseRepository;
   @Mock pl.settly.settly_api.debts.repository.DebtRepository debtRepository;
+
+  @Spy CurrencyConversionService currencyConversionService = new CurrencyConversionService();
 
   @InjectMocks ProjectService projectService;
 
@@ -74,6 +78,9 @@ class ProjectServiceTest {
         1,
         0,
         java.math.BigDecimal.ZERO,
+        "PLN",
+        null,
+        null,
         null,
         null);
   }
@@ -151,7 +158,7 @@ class ProjectServiceTest {
     given(projectMapper.toProjectResponse(any(Project.class), anyLong()))
         .willReturn(dummyProjectResponse());
 
-    CreateProjectRequest request = new CreateProjectRequest("Trip", "Ski trip");
+    CreateProjectRequest request = new CreateProjectRequest("Trip", "Ski trip", null, null);
     ProjectResponse result = projectService.createProject(request, userId);
 
     assertThat(result).isNotNull();
@@ -163,6 +170,32 @@ class ProjectServiceTest {
     assertThat(memberCaptor.getValue().getUser().getId()).isEqualTo(userId);
     verify(projectMapper)
         .toProjectResponse(any(Project.class), org.mockito.ArgumentMatchers.eq(1L));
+  }
+
+  @Test
+  void should_store_the_trips_currency_and_rate_for_expenses_to_inherit() {
+    given(projectRepository.save(any(Project.class))).willAnswer(inv -> inv.getArgument(0));
+    given(projectMapper.toProjectResponse(any(Project.class), org.mockito.ArgumentMatchers.eq(1L)))
+        .willReturn(dummyProjectResponse());
+
+    projectService.createProject(
+        new CreateProjectRequest("London", null, "gbp", new java.math.BigDecimal("4.85")), userId);
+
+    verify(projectRepository).save(projectCaptor.capture());
+    // Normalized on the way in, so an expense inheriting it matches on currency code.
+    assertThat(projectCaptor.getValue().getDefaultCurrency()).isEqualTo("GBP");
+    assertThat(projectCaptor.getValue().getDefaultRateToBase()).isEqualByComparingTo("4.85");
+  }
+
+  @Test
+  void should_reject_a_trip_currency_the_app_cannot_display() {
+    assertThatThrownBy(
+            () ->
+                projectService.createProject(
+                    new CreateProjectRequest("Mars", null, "XYZ", java.math.BigDecimal.ONE),
+                    userId))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("Unsupported currency");
   }
 
   // endregion
@@ -205,7 +238,9 @@ class ProjectServiceTest {
         .willReturn(dummyProjectResponse());
 
     projectService.updateProject(
-        projectId, new UpdateProjectRequest("New name", "desc", ProjectStatus.SETTLED), userId);
+        projectId,
+        new UpdateProjectRequest("New name", "desc", ProjectStatus.SETTLED, null, null),
+        userId);
 
     assertThat(project.getName()).isEqualTo("New name");
     assertThat(project.getDescription()).isEqualTo("desc");
@@ -219,7 +254,7 @@ class ProjectServiceTest {
     assertThatThrownBy(
             () ->
                 projectService.updateProject(
-                    projectId, new UpdateProjectRequest("x", null, null), friendId))
+                    projectId, new UpdateProjectRequest("x", null, null, null, null), friendId))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessage("Only the project owner can perform this action");
   }
