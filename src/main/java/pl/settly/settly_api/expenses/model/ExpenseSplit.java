@@ -49,7 +49,7 @@ public class ExpenseSplit {
    * {@code amount}, which would add pounds to zloty. Apportioned so the shares of one expense add
    * up to exactly its {@code baseAmount} - the odd grosz goes to the payer, as elsewhere.
    */
-  @Column(name = "base_amount", precision = 12, scale = 2, nullable = false)
+  @Column(name = "base_amount", precision = 12, scale = 2, nullable = true)
   private BigDecimal baseAmount;
 
   @Column(name = "settled", nullable = false)

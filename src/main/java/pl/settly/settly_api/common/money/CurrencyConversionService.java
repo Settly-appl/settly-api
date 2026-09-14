@@ -50,9 +50,16 @@ public class CurrencyConversionService {
     return SUPPORTED.stream().sorted().toList();
   }
 
-  /** Converts one amount, rounded to the grosz. */
+  /**
+   * Converts one amount, rounded to the grosz.
+   *
+   * <p>A null rate means the expense predates conversion and nobody has supplied the rate it was
+   * actually bought at. That stays null rather than falling back to 1: an unknown rate must look
+   * unknown, so it is skipped by the balance sums instead of being counted as though a pound were
+   * a zloty.
+   */
   public BigDecimal toBase(BigDecimal amount, BigDecimal rateToBase) {
-    if (amount == null) {
+    if (amount == null || rateToBase == null) {
       return null;
     }
     return amount.multiply(rateToBase).setScale(MONEY_SCALE, RoundingMode.HALF_UP);
@@ -125,7 +132,9 @@ public class CurrencyConversionService {
       converted.add(toBase(amount, rateToBase));
     }
 
-    if (baseTotal == null || converted.isEmpty() || remainderIndex < 0) {
+    // No rate means no converted shares — every entry is already null above, and
+    // there is no total to reconcile them against.
+    if (rateToBase == null || baseTotal == null || converted.isEmpty() || remainderIndex < 0) {
       return converted;
     }
 

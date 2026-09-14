@@ -37,6 +37,18 @@ public interface ExpenseRepository extends JpaRepository<Expense, UUID> {
       Pageable pageable);
 
   /**
+   * Expenses of this user that carry no exchange rate, newest first.
+   *
+   * <p>These are expenses in a foreign currency that predate conversion (see V10): their rate is
+   * unknown rather than 1, so they are excluded from every balance. The app asks the user to supply
+   * the rate, which is the only place it can come from.
+   */
+  @Query(
+      "SELECT e FROM Expense e WHERE e.user.id = :userId AND e.rateToBase IS NULL"
+          + " ORDER BY e.date DESC")
+  List<Expense> findUnconverted(@Param("userId") UUID userId);
+
+  /**
    * Drops a project's grouping from its expenses without touching the expenses themselves — they
    * are real spending and must outlive the project.
    */
