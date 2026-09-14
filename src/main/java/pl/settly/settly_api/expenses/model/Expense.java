@@ -63,7 +63,7 @@ public class Expense {
    * when they bought the foreign currency, not a market rate. 1 GBP = 4.85 PLN is 4.85. Always 1
    * when the expense is already in the base currency.
    */
-  @Column(name = "rate_to_base", precision = 18, scale = 8, nullable = false)
+  @Column(name = "rate_to_base", precision = 18, scale = 8, nullable = true)
   private BigDecimal rateToBase;
 
   /**

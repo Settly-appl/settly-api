@@ -217,6 +217,27 @@ class ExpensesServiceTest {
 
   // endregion
 
+  @Test
+  void should_list_expenses_that_still_need_a_rate() {
+    Expense unconverted = ownedExpense();
+    unconverted.setCurrency("GBP");
+    unconverted.setBaseCurrency("PLN");
+    unconverted.setRateToBase(null);
+
+    given(expenseRepository.findUnconverted(userId)).willReturn(List.of(unconverted));
+    given(expenseSplitRepository.findByExpenseIdIn(anyList())).willReturn(List.of());
+    given(expenseMapper.toExpenseResponse(unconverted)).willReturn(createDefaultResponse());
+
+    assertThat(expenseService.getUnconvertedExpenses(userId)).hasSize(1);
+  }
+
+  @Test
+  void should_return_nothing_when_every_expense_has_a_rate() {
+    given(expenseRepository.findUnconverted(userId)).willReturn(List.of());
+
+    assertThat(expenseService.getUnconvertedExpenses(userId)).isEmpty();
+  }
+
   // region getExpense
 
   @Test

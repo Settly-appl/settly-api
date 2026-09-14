@@ -266,6 +266,27 @@ public class ExpenseService {
     expenseRepository.delete(expense);
   }
 
+  /**
+   * Expenses still missing the rate they were bought at.
+   *
+   * <p>Their shares are left out of balances rather than counted at a made-up rate, so the app has
+   * to be able to show which ones and send the user to fix them.
+   */
+  @Transactional(readOnly = true)
+  public List<ExpenseResponse> getUnconvertedExpenses(UUID userId) {
+    List<Expense> expenses = expenseRepository.findUnconverted(userId);
+    if (expenses.isEmpty()) {
+      return List.of();
+    }
+    Map<UUID, List<ExpenseSplit>> splitsByExpense = loadSplits(expenses);
+    return expenses.stream()
+        .map(
+            expense ->
+                withSettlement(
+                    expense, splitsByExpense.getOrDefault(expense.getId(), List.of()), userId))
+        .toList();
+  }
+
   public ExpenseItemResponse addItem(
       UUID expenseId, UUID userId, CreateExpenseItemRequest request) {
     Expense expense =

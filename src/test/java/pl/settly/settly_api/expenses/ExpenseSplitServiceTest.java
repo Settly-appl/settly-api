@@ -238,6 +238,37 @@ class ExpenseSplitServiceTest {
   }
 
   @Test
+  void should_leave_shares_unconverted_when_the_expense_has_no_rate() {
+    // Pre-conversion foreign expense (V10): the rate it was bought at is unknown,
+    // so the shares get no base value either. Counting them at a rate of 1 would
+    // quietly add pounds to zloty in every balance -- a null is left out instead.
+    Expense expense = createExpense(new BigDecimal("30.00"), "GBP", BigDecimal.ONE);
+    expense.setRateToBase(null);
+    expense.setBaseAmount(null);
+    User friend = createFriendUser(friendId);
+
+    given(expenseRepository.findByIdAndUser_Id(expenseId, userId)).willReturn(Optional.of(expense));
+    given(expenseSplitRepository.existsByExpenseId(expenseId)).willReturn(false);
+    given(friendshipService.areFriends(userId, friendId)).willReturn(true);
+    given(userRepository.getReferenceById(friendId)).willReturn(friend);
+    given(expenseSplitRepository.saveAll(anyList())).willAnswer(inv -> inv.getArgument(0));
+    given(expenseMapper.toExpenseSplitResponse(any())).willReturn(dummyResponse());
+
+    CreateExpenseSplitRequest request =
+        new CreateExpenseSplitRequest(
+            ExpenseSplitType.EQUAL, List.of(new SplitParticipant(friendId, null)), null);
+
+    expenseSplitService.createSplit(expenseId, request, userId);
+
+    verify(expenseSplitRepository).saveAll(splitsCaptor.capture());
+    List<ExpenseSplit> saved = splitsCaptor.getValue();
+    // The shares themselves are still owed in pounds, exactly as agreed.
+    assertThat(saved.stream().map(ExpenseSplit::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add))
+        .isEqualByComparingTo("30.00");
+    assertThat(saved).allMatch(s -> s.getBaseAmount() == null);
+  }
+
+  @Test
   void should_refuse_a_split_between_different_base_currencies() {
     Expense expense = createExpense(BigDecimal.valueOf(100));
     User friend = createFriendUser(friendId);

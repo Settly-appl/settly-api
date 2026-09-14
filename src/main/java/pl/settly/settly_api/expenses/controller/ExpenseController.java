@@ -40,6 +40,18 @@ public class ExpenseController {
                 requestExpense, UUID.fromString(authentication.getName())));
   }
 
+  /**
+   * Expenses whose exchange rate is unknown, so the app can tell the user their balances are
+   * incomplete and walk them through filling it in. Literal path segments win over {expenseId} in
+   * Spring's pattern comparator, so this does not collide with it.
+   */
+  @GetMapping("/unconverted")
+  public ResponseEntity<List<ExpenseResponse>> getUnconvertedExpenses(
+      Authentication authentication) {
+    return ResponseEntity.ok(
+        expenseService.getUnconvertedExpenses(UUID.fromString(authentication.getName())));
+  }
+
   @GetMapping("/{expenseId}")
   public ResponseEntity<ExpenseResponse> getExpenseById(
       @PathVariable UUID expenseId, Authentication authentication) {
