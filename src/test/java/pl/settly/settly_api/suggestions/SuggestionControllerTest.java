@@ -3,15 +3,18 @@ package pl.settly.settly_api.suggestions;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.doAnswer;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import jakarta.servlet.FilterChain;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -42,6 +45,23 @@ class SuggestionControllerTest {
   @MockitoBean UserSyncFilter userSyncFilter;
   @MockitoBean UserService userService;
   @MockitoBean KeycloakUserInfoMapper keycloakUserInfoMapper;
+
+  /**
+   * A @MockitoBean Filter does nothing by default, which silently stops the chain — every request
+   * then returns an empty 200 and no controller is ever reached. Let it through, as the other
+   * controller tests do.
+   */
+  @BeforeEach
+  void letTheUserSyncFilterThrough() throws Exception {
+    doAnswer(
+            inv -> {
+              inv.getArgument(2, FilterChain.class)
+                  .doFilter(inv.getArgument(0), inv.getArgument(1));
+              return null;
+            })
+        .when(userSyncFilter)
+        .doFilter(any(), any(), any());
+  }
 
   @Test
   void should_accept_a_suggestion_from_any_signed_in_user() throws Exception {
