@@ -65,13 +65,14 @@ public class ExpenseService {
   @Transactional
   public ExpenseResponse createExpense(CreateExpenseRequest request, UUID userId) {
     Expense expense = expenseMapper.toExpense(request);
-    // @NotBlank has already rejected whitespace-only input; trimming keeps padding
-    // out of the stored name.
-    expense.setShop(request.shop().trim());
     User user = userRepository.getReferenceById(userId);
     Project project = resolveProject(request.projectId(), userId);
     expense.setUser(user);
     expense.setProject(project);
+    // @NotBlank has already rejected whitespace-only input; trimming keeps padding
+    // out of the stored name. Grouped with the other assignments, after the lookups,
+    // so a missing user still surfaces as its own error rather than as an NPE here.
+    expense.setShop(request.shop().trim());
     applyConversion(expense, request, project, user);
     Expense savedExpense = expenseRepository.save(expense);
     // A brand-new expense has no splits yet.

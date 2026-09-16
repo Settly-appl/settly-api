@@ -44,6 +44,8 @@ Package-by-feature: `auth`, `projects`, `expenses`, `debts`, `friendships`, `not
 
 **Expense name** — `shop` is the expense's name and is `@NotBlank` on `CreateExpenseRequest` (which is also the update payload), trimmed on save. The column stays **nullable**: expenses created before the rule keep a null name rather than a backfilled placeholder, because a stored "Unnamed expense" is indistinguishable from one a user typed and would freeze one language into the data. The app substitutes a localized label at render time (`AppTexts.expenseName`), and since update goes through the same `@NotBlank`, editing such an expense is what finally names it — a cleanup path that invents nothing.
 
+**Suggestions** — `POST /suggestions` takes free text from any signed-in user; `GET /suggestions` is `@PreAuthorize("hasRole('admin')")`, like the broadcast and reminder endpoints. Hiding the button in the app is a courtesy; the endpoint is the control. `suggestions.user_id` is nullable and `ON DELETE SET NULL`: the feedback outlives its author, and a hard reference would block deleting an account that had ever sent one.
+
 **Notifications** — Domain services (`ExpenseSplitService`, `FriendshipService`) publish Spring application events; `NotificationEventListener` consumes them `@Async` + `@TransactionalEventListener(AFTER_COMMIT)` and sends FCM pushes through `FcmService`. Firebase is gated by `firebase.enabled` (off by default; credentials are base64 service-account JSON). User-facing notification text is in Polish.
 
 **AI** — `AiGeminiService` uses Spring AI with Gemini (`gemini-2.5-flash`) to extract expense data from receipt photos.
