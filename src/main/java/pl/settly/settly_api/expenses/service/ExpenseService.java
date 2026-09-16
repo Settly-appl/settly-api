@@ -65,6 +65,9 @@ public class ExpenseService {
   @Transactional
   public ExpenseResponse createExpense(CreateExpenseRequest request, UUID userId) {
     Expense expense = expenseMapper.toExpense(request);
+    // @NotBlank has already rejected whitespace-only input; trimming keeps padding
+    // out of the stored name.
+    expense.setShop(request.shop().trim());
     User user = userRepository.getReferenceById(userId);
     Project project = resolveProject(request.projectId(), userId);
     expense.setUser(user);
@@ -201,7 +204,7 @@ public class ExpenseService {
             .findByIdAndUser_Id(expenseId, userId)
             .orElseThrow(() -> new ResourceNotFoundException("Expense does not exist"));
     Project project = resolveProject(request.projectId(), userId);
-    expense.setShop(request.shop());
+    expense.setShop(request.shop().trim());
     expense.setNote(request.note());
     expense.setCategory(request.category());
     expense.setTotalAmount(request.totalAmount());
