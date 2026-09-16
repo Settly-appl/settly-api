@@ -158,6 +158,45 @@ class ExpensesControllerTest {
   }
 
   @Test
+  void should_reject_an_expense_with_a_blank_name() throws Exception {
+    // A name made only of spaces is not a name. Rejecting it here is what stops
+    // new nameless rows appearing while the old ones are being cleaned up.
+    mockMvc
+        .perform(
+            post("/expenses")
+                .with(user(USER_ID))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                                {
+                                    "shop": "   ",
+                                    "totalAmount": 100.00,
+                                    "date": "%s"
+                                }
+                                """
+                        .formatted(LocalDate.now())))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  void should_reject_an_expense_with_no_name_at_all() throws Exception {
+    mockMvc
+        .perform(
+            post("/expenses")
+                .with(user(USER_ID))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                                {
+                                    "totalAmount": 100.00,
+                                    "date": "%s"
+                                }
+                                """
+                        .formatted(LocalDate.now())))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
   void should_return_401_when_creating_expense_without_auth() throws Exception {
     mockMvc
         .perform(

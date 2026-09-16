@@ -2,6 +2,7 @@ package pl.settly.settly_api.expenses.dto;
 
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -10,13 +11,20 @@ import java.time.LocalDate;
 import java.util.UUID;
 
 /**
- * {@code rateToBase} is how many units of the user's base currency one unit of {@code currency} is
+ * {@code shop} is the expense's name and is required. Expenses created before it became required
+ * keep a null name rather than a placeholder: a stored "Unnamed expense" could not be told apart
+ * from one somebody actually typed, and would freeze one language into the data. Since this record
+ * is also the update payload, editing such an expense is what finally gives it a name.
+ *
+ * <p>{@code rateToBase} is how many units of the user's base currency one unit of {@code currency} is
  * worth - the rate they got when they bought it (1 GBP = 4.85 PLN is 4.85). Required when {@code
  * currency} differs from the base and the expense's project carries no default rate; ignored when
  * the expense is already in the base currency, where the rate is 1 by definition.
  */
 public record CreateExpenseRequest(
-    @Size(max = 255, message = "Shop name cannot exceed 255 characters") String shop,
+    @NotBlank(message = "Name is required")
+        @Size(max = 255, message = "Shop name cannot exceed 255 characters")
+        String shop,
     @Size(max = 500, message = "Note cannot exceed 500 characters") String note,
     @Pattern(regexp = "^[A-Za-z]{3}$", message = "Currency must be a 3-letter code") String currency,
     @DecimalMin(value = "0.00000001", message = "Exchange rate must be greater than 0")
