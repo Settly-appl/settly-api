@@ -17,6 +17,8 @@ public interface ProjectMapper {
   @Mapping(target = "totalCurrency", ignore = true)
   @Mapping(source = "project.defaultCurrency", target = "defaultCurrency")
   @Mapping(source = "project.defaultRateToBase", target = "defaultRateToBase")
+  @Mapping(source = "project.startDate", target = "startDate")
+  @Mapping(source = "project.endDate", target = "endDate")
   ProjectResponse toProjectResponse(Project project, long memberCount);
 
   @Mapping(source = "member.user.id", target = "userId")
