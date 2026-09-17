@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pl.settly.settly_api.auth.user.model.User;
 import pl.settly.settly_api.auth.user.repository.UserRepository;
+import pl.settly.settly_api.common.exception.ResourceNotFoundException;
 import pl.settly.settly_api.suggestions.dto.CreateSuggestionRequest;
 import pl.settly.settly_api.suggestions.dto.SuggestionResponse;
 import pl.settly.settly_api.suggestions.model.Suggestion;
@@ -38,6 +39,21 @@ public class SuggestionService {
   @Transactional(readOnly = true)
   public List<SuggestionResponse> getAll() {
     return suggestionRepository.findAllNewestFirst().stream().map(this::toResponse).toList();
+  }
+
+  /**
+   * Removes a suggestion for good.
+   *
+   * <p>A hard delete: a suggestion is somebody's sentence about the app, not a financial record, so
+   * there is nothing downstream that needs it to keep existing. The guard against deleting the
+   * wrong one belongs in the UI, which asks first.
+   */
+  @Transactional
+  public void delete(UUID suggestionId) {
+    if (!suggestionRepository.existsById(suggestionId)) {
+      throw new ResourceNotFoundException("Suggestion does not exist");
+    }
+    suggestionRepository.deleteById(suggestionId);
   }
 
   /**
