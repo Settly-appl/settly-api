@@ -65,6 +65,8 @@ public class ProjectService {
                 .description(request.description())
                 .defaultCurrency(normalizeDefaultCurrency(request.defaultCurrency()))
                 .defaultRateToBase(request.defaultRateToBase())
+                .startDate(request.startDate())
+                .endDate(request.endDate())
                 .projectOwner(userRepository.getReferenceById(userId))
                 .build());
 
@@ -160,6 +162,13 @@ public class ProjectService {
     }
     if (request.defaultRateToBase() != null) {
       project.setDefaultRateToBase(request.defaultRateToBase());
+    }
+    // Both ends move together: sending one without the other would let a caller
+    // build an inverted span in two steps that @AssertTrue could not catch,
+    // since it only ever sees one request at a time.
+    if (request.startDate() != null || request.endDate() != null) {
+      project.setStartDate(request.startDate());
+      project.setEndDate(request.endDate());
     }
 
     List<ProjectExpenseTotals> totals = expenseRepository.sumByProject(List.of(projectId));

@@ -1,11 +1,13 @@
 package pl.settly.settly_api.projects.dto;
 
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 /**
  * {@code defaultCurrency} / {@code defaultRateToBase} are the trip's currency and the rate its
@@ -19,4 +21,13 @@ public record CreateProjectRequest(
         String defaultCurrency,
     @DecimalMin(value = "0.00000001", message = "Exchange rate must be greater than 0")
         @Digits(integer = 10, fraction = 8, message = "Exchange rate is too precise")
-        BigDecimal defaultRateToBase) {}
+        BigDecimal defaultRateToBase,
+    LocalDate startDate,
+    LocalDate endDate) {
+
+  /** A span that ends before it starts is not a span; the DB refuses it too. */
+  @AssertTrue(message = "End date cannot be before the start date")
+  public boolean isDateSpanOrdered() {
+    return startDate == null || endDate == null || !endDate.isBefore(startDate);
+  }
+}

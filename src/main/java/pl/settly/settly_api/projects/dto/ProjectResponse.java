@@ -2,6 +2,7 @@ package pl.settly.settly_api.projects.dto;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 import pl.settly.settly_api.projects.model.ProjectStatus;
 
@@ -28,6 +29,8 @@ public record ProjectResponse(
     String totalCurrency,
     String defaultCurrency,
     BigDecimal defaultRateToBase,
+    LocalDate startDate,
+    LocalDate endDate,
     Instant createdAt,
     Instant updatedAt) {
 
@@ -45,6 +48,8 @@ public record ProjectResponse(
         totalCurrency,
         defaultCurrency,
         defaultRateToBase,
+        startDate,
+        endDate,
         createdAt,
         updatedAt);
   }

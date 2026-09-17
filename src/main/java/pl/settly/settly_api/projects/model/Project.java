@@ -9,6 +9,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.Instant;
 import java.util.UUID;
 import lombok.AllArgsConstructor;
@@ -49,6 +50,17 @@ public class Project {
 
   @Column(name = "default_rate_to_base", precision = 18, scale = 8, nullable = true)
   private BigDecimal defaultRateToBase;
+
+  /**
+   * When the trip runs. Both nullable: many projects are not trips and have no dates at all. An
+   * expense dated inside a project's span is offered that project automatically, which is why only
+   * a span with BOTH ends counts -- an open-ended one would claim every future expense.
+   */
+  @Column(name = "start_date", nullable = true)
+  private LocalDate startDate;
+
+  @Column(name = "end_date", nullable = true)
+  private LocalDate endDate;
 
   @Builder.Default
   @Enumerated(EnumType.STRING)

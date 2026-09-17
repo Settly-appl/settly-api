@@ -82,6 +82,8 @@ class ProjectServiceTest {
         null,
         null,
         null,
+        null,
+        null,
         null);
   }
 
@@ -158,7 +160,7 @@ class ProjectServiceTest {
     given(projectMapper.toProjectResponse(any(Project.class), anyLong()))
         .willReturn(dummyProjectResponse());
 
-    CreateProjectRequest request = new CreateProjectRequest("Trip", "Ski trip", null, null);
+    CreateProjectRequest request = new CreateProjectRequest("Trip", "Ski trip", null, null, null, null);
     ProjectResponse result = projectService.createProject(request, userId);
 
     assertThat(result).isNotNull();
@@ -179,7 +181,7 @@ class ProjectServiceTest {
         .willReturn(dummyProjectResponse());
 
     projectService.createProject(
-        new CreateProjectRequest("London", null, "gbp", new java.math.BigDecimal("4.85")), userId);
+        new CreateProjectRequest("London", null, "gbp", new java.math.BigDecimal("4.85"), null, null), userId);
 
     verify(projectRepository).save(projectCaptor.capture());
     // Normalized on the way in, so an expense inheriting it matches on currency code.
@@ -188,11 +190,57 @@ class ProjectServiceTest {
   }
 
   @Test
+  void should_store_the_trips_dates() {
+    given(projectRepository.save(any(Project.class))).willAnswer(inv -> inv.getArgument(0));
+    given(projectMapper.toProjectResponse(any(Project.class), org.mockito.ArgumentMatchers.eq(1L)))
+        .willReturn(dummyProjectResponse());
+
+    projectService.createProject(
+        new CreateProjectRequest(
+            "London",
+            null,
+            null,
+            null,
+            java.time.LocalDate.of(2026, 9, 10),
+            java.time.LocalDate.of(2026, 9, 20)),
+        userId);
+
+    verify(projectRepository).save(projectCaptor.capture());
+    assertThat(projectCaptor.getValue().getStartDate())
+        .isEqualTo(java.time.LocalDate.of(2026, 9, 10));
+    assertThat(projectCaptor.getValue().getEndDate())
+        .isEqualTo(java.time.LocalDate.of(2026, 9, 20));
+  }
+
+  @Test
+  void should_refuse_a_span_that_ends_before_it_starts() {
+    // Bean validation runs at the controller edge, so assert the rule itself here —
+    // it is the thing that stops an inverted span reaching the DB constraint.
+    CreateProjectRequest inverted =
+        new CreateProjectRequest(
+            "Backwards",
+            null,
+            null,
+            null,
+            java.time.LocalDate.of(2026, 9, 20),
+            java.time.LocalDate.of(2026, 9, 10));
+
+    assertThat(inverted.isDateSpanOrdered()).isFalse();
+  }
+
+  @Test
+  void should_accept_a_project_with_no_dates_at_all() {
+    // Most projects are not trips; a flat share has no span and must stay valid.
+    assertThat(new CreateProjectRequest("Flat", null, null, null, null, null).isDateSpanOrdered())
+        .isTrue();
+  }
+
+  @Test
   void should_reject_a_trip_currency_the_app_cannot_display() {
     assertThatThrownBy(
             () ->
                 projectService.createProject(
-                    new CreateProjectRequest("Mars", null, "XYZ", java.math.BigDecimal.ONE),
+                    new CreateProjectRequest("Mars", null, "XYZ", java.math.BigDecimal.ONE, null, null),
                     userId))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("Unsupported currency");
@@ -239,7 +287,7 @@ class ProjectServiceTest {
 
     projectService.updateProject(
         projectId,
-        new UpdateProjectRequest("New name", "desc", ProjectStatus.SETTLED, null, null),
+        new UpdateProjectRequest("New name", "desc", ProjectStatus.SETTLED, null, null, null, null),
         userId);
 
     assertThat(project.getName()).isEqualTo("New name");
@@ -254,7 +302,7 @@ class ProjectServiceTest {
     assertThatThrownBy(
             () ->
                 projectService.updateProject(
-                    projectId, new UpdateProjectRequest("x", null, null, null, null), friendId))
+                    projectId, new UpdateProjectRequest("x", null, null, null, null, null, null), friendId))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessage("Only the project owner can perform this action");
   }
