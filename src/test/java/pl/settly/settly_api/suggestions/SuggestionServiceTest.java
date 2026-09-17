@@ -1,8 +1,11 @@
 package pl.settly.settly_api.suggestions;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
 import java.time.Instant;
 import java.util.List;
@@ -14,6 +17,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import pl.settly.settly_api.auth.user.model.User;
 import pl.settly.settly_api.auth.user.repository.UserRepository;
+import pl.settly.settly_api.common.exception.ResourceNotFoundException;
 import pl.settly.settly_api.suggestions.dto.CreateSuggestionRequest;
 import pl.settly.settly_api.suggestions.dto.SuggestionResponse;
 import pl.settly.settly_api.suggestions.model.Suggestion;
@@ -66,6 +70,27 @@ class SuggestionServiceTest {
         .willReturn(List.of(suggestion(user(null, "mat"), "add budgets")));
 
     assertThat(suggestionService.getAll().get(0).authorName()).isEqualTo("mat");
+  }
+
+  @Test
+  void should_delete_a_suggestion() {
+    UUID id = UUID.randomUUID();
+    given(suggestionRepository.existsById(id)).willReturn(true);
+
+    suggestionService.delete(id);
+
+    verify(suggestionRepository).deleteById(id);
+  }
+
+  @Test
+  void should_report_a_missing_suggestion_rather_than_silently_succeed() {
+    UUID id = UUID.randomUUID();
+    given(suggestionRepository.existsById(id)).willReturn(false);
+
+    assertThatThrownBy(() -> suggestionService.delete(id))
+        .isInstanceOf(ResourceNotFoundException.class);
+
+    verify(suggestionRepository, never()).deleteById(id);
   }
 
   @Test
