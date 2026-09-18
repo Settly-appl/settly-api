@@ -67,6 +67,22 @@ public interface ExpenseSplitRepository extends JpaRepository<ExpenseSplit, UUID
   List<BalanceAggregate> sumOwedByUser(
       @Param("userId") UUID userId, @Param("projectId") UUID projectId);
 
+  /**
+   * The same set as {@link #findUnsettledBetween}, with the expense and its project fetched.
+   *
+   * <p>Separate from that method on purpose: settle-up only touches the splits, while listing what
+   * a balance is made of reads every expense behind it, and a lazy load per row would be an N+1
+   * over the whole relationship.
+   */
+  @Query(
+      "SELECT s FROM ExpenseSplit s JOIN FETCH s.expense e LEFT JOIN FETCH e.project"
+          + " WHERE e.user.id = :creditorId AND s.user.id = :debtorId AND s.settled = false"
+          + " AND (:projectId IS NULL OR e.project.id = :projectId)")
+  List<ExpenseSplit> findUnsettledBetweenWithExpense(
+      @Param("creditorId") UUID creditorId,
+      @Param("debtorId") UUID debtorId,
+      @Param("projectId") UUID projectId);
+
   /** A debtor's unsettled splits on the creditor's expenses, optionally scoped to a project. */
   @Query(
       "SELECT s FROM ExpenseSplit s WHERE s.expense.user.id = :creditorId"

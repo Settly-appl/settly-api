@@ -10,6 +10,7 @@ import static org.mockito.Mockito.verify;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -24,6 +25,7 @@ import pl.settly.settly_api.auth.user.model.User;
 import pl.settly.settly_api.auth.user.repository.UserRepository;
 import pl.settly.settly_api.common.exception.ResourceNotFoundException;
 import pl.settly.settly_api.debts.dto.BalanceAggregate;
+import pl.settly.settly_api.debts.dto.BalanceItemResponse;
 import pl.settly.settly_api.debts.dto.DebtResponse;
 import pl.settly.settly_api.debts.dto.FriendBalanceResponse;
 import pl.settly.settly_api.debts.dto.SettleUpRequest;
@@ -143,6 +145,96 @@ class DebtServiceTest {
 
     assertThat(result).hasSize(1);
     assertThat(result.get(0).netAmount()).isEqualByComparingTo("15.00");
+  }
+
+  // endregion
+
+  // region getBalanceItems
+
+  @Test
+  void should_list_both_directions_of_a_balance_newest_first() {
+    Expense mine =
+        Expense.builder()
+            .id(UUID.randomUUID())
+            .shop("Tesco")
+            .currency("GBP")
+            .baseCurrency("PLN")
+            .date(LocalDate.of(2026, 3, 2))
+            .build();
+    Expense theirs =
+        Expense.builder()
+            .id(UUID.randomUUID())
+            .shop("Pub")
+            .currency("PLN")
+            .baseCurrency("PLN")
+            .date(LocalDate.of(2026, 3, 5))
+            .build();
+
+    given(expenseSplitRepository.findUnsettledBetweenWithExpense(userId, friendId, null))
+        .willReturn(
+            List.of(
+                ExpenseSplit.builder()
+                    .expense(mine)
+                    .amount(new BigDecimal("10.00"))
+                    .baseAmount(new BigDecimal("48.50"))
+                    .settled(false)
+                    .build()));
+    given(expenseSplitRepository.findUnsettledBetweenWithExpense(friendId, userId, null))
+        .willReturn(
+            List.of(
+                ExpenseSplit.builder()
+                    .expense(theirs)
+                    .amount(new BigDecimal("20.00"))
+                    .baseAmount(new BigDecimal("20.00"))
+                    .settled(false)
+                    .build()));
+
+    List<BalanceItemResponse> result = debtService.getBalanceItems(userId, friendId, null);
+
+    assertThat(result).hasSize(2);
+    // Newest expense first, regardless of which side it belongs to.
+    assertThat(result.get(0).shop()).isEqualTo("Pub");
+    assertThat(result.get(0).owedToMe()).isFalse();
+    assertThat(result.get(1).shop()).isEqualTo("Tesco");
+    assertThat(result.get(1).owedToMe()).isTrue();
+    assertThat(result.get(1).shareBaseAmount()).isEqualByComparingTo("48.50");
+    assertThat(result.get(1).currency()).isEqualTo("GBP");
+  }
+
+  @Test
+  void should_keep_a_share_without_a_rate_but_leave_its_base_amount_null() {
+    Expense noRate =
+        Expense.builder()
+            .id(UUID.randomUUID())
+            .shop("Stare piwo")
+            .currency("GBP")
+            .baseCurrency("PLN")
+            .date(LocalDate.of(2026, 1, 1))
+            .build();
+
+    given(expenseSplitRepository.findUnsettledBetweenWithExpense(userId, friendId, null))
+        .willReturn(
+            List.of(
+                ExpenseSplit.builder()
+                    .expense(noRate)
+                    .amount(new BigDecimal("7.50"))
+                    .baseAmount(null)
+                    .settled(false)
+                    .build()));
+    given(expenseSplitRepository.findUnsettledBetweenWithExpense(friendId, userId, null))
+        .willReturn(List.of());
+
+    List<BalanceItemResponse> result = debtService.getBalanceItems(userId, friendId, null);
+
+    assertThat(result).hasSize(1);
+    assertThat(result.get(0).shareAmount()).isEqualByComparingTo("7.50");
+    assertThat(result.get(0).shareBaseAmount()).isNull();
+  }
+
+  @Test
+  void should_refuse_a_balance_with_yourself() {
+    assertThatThrownBy(() -> debtService.getBalanceItems(userId, userId, null))
+        .isInstanceOf(IllegalArgumentException.class);
   }
 
   // endregion

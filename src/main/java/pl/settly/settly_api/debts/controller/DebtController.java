@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import pl.settly.settly_api.debts.dto.BalanceItemResponse;
 import pl.settly.settly_api.debts.dto.DebtResponse;
 import pl.settly.settly_api.debts.dto.FriendBalanceResponse;
 import pl.settly.settly_api.debts.dto.SettleUpRequest;
@@ -33,6 +34,20 @@ public class DebtController {
       @RequestParam(required = false) UUID projectId, Authentication authentication) {
     return ResponseEntity.ok(
         debtService.getBalances(UUID.fromString(authentication.getName()), projectId));
+  }
+
+  /**
+   * The unsettled shares behind one balance, both directions. Scoped to the caller by construction:
+   * it can only return splits where the caller is the payer or the debtor.
+   */
+  @GetMapping("/balances/{counterpartyId}/expenses")
+  public ResponseEntity<List<BalanceItemResponse>> getBalanceItems(
+      @PathVariable UUID counterpartyId,
+      @RequestParam(required = false) UUID projectId,
+      Authentication authentication) {
+    return ResponseEntity.ok(
+        debtService.getBalanceItems(
+            UUID.fromString(authentication.getName()), counterpartyId, projectId));
   }
 
   /** Settle up everything a debtor owes the current user; only the creditor may call this. */
