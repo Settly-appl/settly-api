@@ -3,6 +3,7 @@ package pl.settly.settly_api.debts.service;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -15,13 +16,16 @@ import pl.settly.settly_api.auth.user.repository.UserRepository;
 import pl.settly.settly_api.common.exception.ResourceNotFoundException;
 import pl.settly.settly_api.common.money.CurrencyConversionService;
 import pl.settly.settly_api.debts.dto.BalanceAggregate;
+import pl.settly.settly_api.debts.dto.BalanceItemResponse;
 import pl.settly.settly_api.debts.dto.DebtResponse;
 import pl.settly.settly_api.debts.dto.FriendBalanceResponse;
 import pl.settly.settly_api.debts.dto.SettleUpRequest;
 import pl.settly.settly_api.debts.model.Debt;
 import pl.settly.settly_api.debts.repository.DebtRepository;
+import pl.settly.settly_api.expenses.model.Expense;
 import pl.settly.settly_api.expenses.model.ExpenseSplit;
 import pl.settly.settly_api.expenses.repository.ExpenseSplitRepository;
+import pl.settly.settly_api.projects.model.Project;
 import pl.settly.settly_api.projects.repository.ProjectRepository;
 
 @Service
@@ -94,6 +98,53 @@ public class DebtService {
               baseCurrency));
     }
     return balances;
+  }
+
+  /**
+   * The unsettled shares a balance is made of, both directions, newest expense first.
+   *
+   * <p>This is the balance opened up rather than a second source of truth: it reads the same
+   * unsettled splits {@link #getBalances} sums, so the two cannot disagree about what is owed. The
+   * caller gets each side marked ({@code owedToMe}) instead of a pre-netted figure, because "you
+   * owe 40" and "you owe 90 and are owed 50" are the same balance and only the second one can be
+   * checked against the expenses it came from.
+   */
+  @Transactional(readOnly = true)
+  public List<BalanceItemResponse> getBalanceItems(
+      UUID userId, UUID counterpartyId, UUID projectId) {
+    if (userId.equals(counterpartyId)) {
+      throw new IllegalArgumentException("Cannot open a balance with yourself");
+    }
+
+    List<BalanceItemResponse> items = new ArrayList<>();
+    for (ExpenseSplit split :
+        expenseSplitRepository.findUnsettledBetweenWithExpense(userId, counterpartyId, projectId)) {
+      items.add(toItem(split, true));
+    }
+    for (ExpenseSplit split :
+        expenseSplitRepository.findUnsettledBetweenWithExpense(counterpartyId, userId, projectId)) {
+      items.add(toItem(split, false));
+    }
+    items.sort(Comparator.comparing(BalanceItemResponse::date).reversed());
+    return items;
+  }
+
+  private static BalanceItemResponse toItem(ExpenseSplit split, boolean owedToMe) {
+    Expense expense = split.getExpense();
+    Project project = expense.getProject();
+    return new BalanceItemResponse(
+        expense.getId(),
+        expense.getShop(),
+        expense.getCategory(),
+        expense.getDate(),
+        project == null ? null : project.getId(),
+        project == null ? null : project.getName(),
+        split.getAmount(),
+        expense.getCurrency(),
+        split.getBaseAmount(),
+        expense.getBaseCurrency(),
+        owedToMe,
+        Boolean.TRUE.equals(split.getDeclaredPaid()));
   }
 
   /**
