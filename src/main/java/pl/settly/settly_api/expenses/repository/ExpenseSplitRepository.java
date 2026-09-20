@@ -7,7 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import pl.settly.settly_api.debts.dto.BalanceAggregate;
-import pl.settly.settly_api.expenses.dto.DebtorSummary;
+import pl.settly.settly_api.expenses.dto.PairDebtSummary;
 import pl.settly.settly_api.expenses.model.ExpenseSplit;
 
 public interface ExpenseSplitRepository extends JpaRepository<ExpenseSplit, UUID> {
@@ -30,21 +30,29 @@ public interface ExpenseSplitRepository extends JpaRepository<ExpenseSplit, UUID
   List<ExpenseSplit> findBySettledByDebtId(UUID debtId);
 
   /**
-   * Everyone who currently owes money, with how many shares are outstanding and their total. The
-   * owner's own row is excluded — nobody owes it. Shares whose user already declared "I paid" are
-   * skipped too: nagging someone who claims to have paid (and is waiting for the owner to confirm)
-   * would just be noise. Drives the daily settle-up reminder.
+   * Unsettled shares grouped by (debtor, creditor), which is what the settle-up reminder needs.
    *
-   * <p>Sums {@code baseAmount}, not {@code amount}: the latter would add pounds to zloty and
-   * reminds people of a number that is not any amount of money.
+   * <p>Grouping by debtor alone — as this did — answers "who holds an unsettled share", not "who
+   * should send money". Someone who owes 50 and is owed 200 by the same person was nagged to pay,
+   * although the other side is the one who has to transfer anything. Netting has to happen per
+   * pair, so the query hands both directions over and the job subtracts them.
+   *
+   * <p>The owner's own row is excluded — nobody owes it. Shares already declared paid are still
+   * returned but counted separately: a declaration is not a payment, so it must not move the
+   * balance, while nagging someone who is waiting for the owner to confirm is exactly the noise
+   * the declaration was meant to stop.
+   *
+   * <p>Sums {@code baseAmount}, not {@code amount}: the latter would add pounds to zloty and remind
+   * people of a number that is not any amount of money.
    */
   @Query(
-      "SELECT s.user.id AS userId, COUNT(s) AS unsettledCount, SUM(s.baseAmount) AS total"
+      "SELECT s.user.id AS debtorId, s.expense.user.id AS creditorId,"
+          + " SUM(s.baseAmount) AS total,"
+          + " SUM(CASE WHEN s.declaredPaid = false THEN 1 ELSE 0 END) AS undeclaredCount"
           + " FROM ExpenseSplit s"
-          + " WHERE s.settled = false AND s.declaredPaid = false"
-          + " AND s.user.id <> s.expense.user.id"
-          + " GROUP BY s.user.id")
-  List<DebtorSummary> findDebtorsWithUnsettledShares();
+          + " WHERE s.settled = false AND s.user.id <> s.expense.user.id"
+          + " GROUP BY s.user.id, s.expense.user.id")
+  List<PairDebtSummary> sumUnsettledByPair();
 
   /**
    * Unsettled amounts other users owe the given user (their splits on the user's expenses), in the
