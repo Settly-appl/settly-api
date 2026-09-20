@@ -8,6 +8,8 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -287,12 +289,52 @@ class ProjectServiceTest {
 
     projectService.updateProject(
         projectId,
-        new UpdateProjectRequest("New name", "desc", ProjectStatus.SETTLED, null, null, null, null),
+        new UpdateProjectRequest(
+            "New name", "desc", ProjectStatus.SETTLED, null, null, null, null, null),
         userId);
 
     assertThat(project.getName()).isEqualTo("New name");
     assertThat(project.getDescription()).isEqualTo("desc");
     assertThat(project.getStatus()).isEqualTo(ProjectStatus.SETTLED);
+  }
+
+  @Test
+  void should_clear_the_date_span_when_asked() {
+    Project project = projectOwnedBy(userId);
+    project.setStartDate(LocalDate.of(2026, 9, 12));
+    project.setEndDate(LocalDate.of(2026, 9, 20));
+    given(projectRepository.findById(projectId)).willReturn(Optional.of(project));
+    given(projectRepository.save(project)).willReturn(project);
+    given(projectMemberRepository.countByProjectId(projectId)).willReturn(1L);
+    given(projectMapper.toProjectResponse(any(Project.class), anyLong()))
+        .willReturn(dummyProjectResponse());
+
+    projectService.updateProject(
+        projectId,
+        new UpdateProjectRequest(null, null, null, null, null, null, null, true),
+        userId);
+
+    assertThat(project.getStartDate()).isNull();
+    assertThat(project.getEndDate()).isNull();
+  }
+
+  @Test
+  void should_drop_the_trip_rate_when_the_trip_currency_is_cleared() {
+    Project project = projectOwnedBy(userId);
+    project.setDefaultCurrency("GBP");
+    project.setDefaultRateToBase(new BigDecimal("4.85"));
+    given(projectRepository.findById(projectId)).willReturn(Optional.of(project));
+    given(projectRepository.save(project)).willReturn(project);
+    given(projectMemberRepository.countByProjectId(projectId)).willReturn(1L);
+    given(projectMapper.toProjectResponse(any(Project.class), anyLong()))
+        .willReturn(dummyProjectResponse());
+
+    projectService.updateProject(
+        projectId, new UpdateProjectRequest(null, null, null, "", null, null, null, null), userId);
+
+    assertThat(project.getDefaultCurrency()).isNull();
+    // A rate with no currency converts nothing and could be handed to a different one later.
+    assertThat(project.getDefaultRateToBase()).isNull();
   }
 
   @Test
@@ -302,7 +344,9 @@ class ProjectServiceTest {
     assertThatThrownBy(
             () ->
                 projectService.updateProject(
-                    projectId, new UpdateProjectRequest("x", null, null, null, null, null, null), friendId))
+                    projectId,
+                    new UpdateProjectRequest("x", null, null, null, null, null, null, null),
+                    friendId))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessage("Only the project owner can perform this action");
   }

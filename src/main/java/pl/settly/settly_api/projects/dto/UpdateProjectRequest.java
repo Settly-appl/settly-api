@@ -19,10 +19,21 @@ public record UpdateProjectRequest(
         @Digits(integer = 10, fraction = 8, message = "Exchange rate is too precise")
         BigDecimal defaultRateToBase,
     LocalDate startDate,
-    LocalDate endDate) {
+    LocalDate endDate,
+    /**
+     * Removes the trip's dates. A PATCH reads an absent field as "leave this alone", so without an
+     * explicit flag a span could be corrected but never taken off a project that is not a trip
+     * after all. A blank string plays this role for {@code defaultCurrency}; dates have no blank.
+     */
+    Boolean clearDateSpan) {
 
   @AssertTrue(message = "End date cannot be before the start date")
   public boolean isDateSpanOrdered() {
     return startDate == null || endDate == null || !endDate.isBefore(startDate);
+  }
+
+  @AssertTrue(message = "Cannot clear and set the date span in one request")
+  public boolean isDateSpanChangeUnambiguous() {
+    return !Boolean.TRUE.equals(clearDateSpan) || (startDate == null && endDate == null);
   }
 }

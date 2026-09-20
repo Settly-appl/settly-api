@@ -158,7 +158,14 @@ public class ProjectService {
     // A blank code clears the trip default rather than being read as "no change" —
     // that is the only way to stop new expenses inheriting a currency.
     if (request.defaultCurrency() != null) {
-      project.setDefaultCurrency(normalizeDefaultCurrency(request.defaultCurrency()));
+      String normalized = normalizeDefaultCurrency(request.defaultCurrency());
+      project.setDefaultCurrency(normalized);
+      // A rate belongs to a currency. Leaving the old one behind would keep a
+      // number that converts nothing and that a later edit could hand back to
+      // a different currency.
+      if (normalized == null) {
+        project.setDefaultRateToBase(null);
+      }
     }
     if (request.defaultRateToBase() != null) {
       project.setDefaultRateToBase(request.defaultRateToBase());
@@ -166,7 +173,13 @@ public class ProjectService {
     // Both ends move together: sending one without the other would let a caller
     // build an inverted span in two steps that @AssertTrue could not catch,
     // since it only ever sees one request at a time.
-    if (request.startDate() != null || request.endDate() != null) {
+    //
+    // Clearing needs its own flag: an absent field means "leave this alone", so
+    // two absent dates cannot also mean "remove them".
+    if (Boolean.TRUE.equals(request.clearDateSpan())) {
+      project.setStartDate(null);
+      project.setEndDate(null);
+    } else if (request.startDate() != null || request.endDate() != null) {
       project.setStartDate(request.startDate());
       project.setEndDate(request.endDate());
     }
