@@ -14,8 +14,8 @@ import org.springframework.stereotype.Service;
  * market rate we look up. It is supplied per expense (or inherited from the trip's project) and
  * snapshotted on the expense, so a rate typed today never restates what last month cost.
  *
- * <p>Direction, since it is the easiest thing in the feature to get backwards: {@code rateToBase} is
- * how many base units <em>one unit of the foreign currency</em> is worth. 1 GBP = 4.85 PLN is
+ * <p>Direction, since it is the easiest thing in the feature to get backwards: {@code rateToBase}
+ * is how many base units <em>one unit of the foreign currency</em> is worth. 1 GBP = 4.85 PLN is
  * {@code 4.85}, and base = foreign x rate.
  */
 @Service
@@ -55,8 +55,8 @@ public class CurrencyConversionService {
    *
    * <p>A null rate means the expense predates conversion and nobody has supplied the rate it was
    * actually bought at. That stays null rather than falling back to 1: an unknown rate must look
-   * unknown, so it is skipped by the balance sums instead of being counted as though a pound were
-   * a zloty.
+   * unknown, so it is skipped by the balance sums instead of being counted as though a pound were a
+   * zloty.
    */
   public BigDecimal toBase(BigDecimal amount, BigDecimal rateToBase) {
     if (amount == null || rateToBase == null) {
@@ -82,10 +82,7 @@ public class CurrencyConversionService {
       String userBaseCurrency) {
 
     String baseCurrency = normalize(userBaseCurrency, DEFAULT_CURRENCY);
-    String currency =
-        normalize(
-            firstPresent(requestedCurrency, projectCurrency),
-            baseCurrency);
+    String currency = normalize(firstPresent(requestedCurrency, projectCurrency), baseCurrency);
 
     // In the base currency the rate is 1 by definition; an inherited or stale rate
     // sent alongside it would only be a way to get the arithmetic wrong.

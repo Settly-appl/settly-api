@@ -1943,7 +1943,7 @@
       }
     ]
   },
-  "internationalizationEnabled": false,
+  "internationalizationEnabled": true,
   "authenticationFlows": [
     {
       "id": "f02e61b9-49a4-43b6-904a-567ef45d07db",
@@ -2797,5 +2797,11 @@
   },
   "clientPolicies": {
     "policies": []
-  }
+  },
+  "loginTheme": "settly",
+  "supportedLocales": [
+    "pl",
+    "en"
+  ],
+  "defaultLocale": "pl"
 }

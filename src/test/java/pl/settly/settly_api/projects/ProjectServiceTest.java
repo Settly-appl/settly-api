@@ -22,8 +22,8 @@ import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import pl.settly.settly_api.auth.user.model.User;
 import pl.settly.settly_api.auth.user.repository.UserRepository;
-import pl.settly.settly_api.common.money.CurrencyConversionService;
 import pl.settly.settly_api.common.exception.ResourceNotFoundException;
+import pl.settly.settly_api.common.money.CurrencyConversionService;
 import pl.settly.settly_api.friendships.service.FriendshipService;
 import pl.settly.settly_api.projects.dto.AddProjectMemberRequest;
 import pl.settly.settly_api.projects.dto.CreateProjectRequest;
@@ -162,7 +162,8 @@ class ProjectServiceTest {
     given(projectMapper.toProjectResponse(any(Project.class), anyLong()))
         .willReturn(dummyProjectResponse());
 
-    CreateProjectRequest request = new CreateProjectRequest("Trip", "Ski trip", null, null, null, null);
+    CreateProjectRequest request =
+        new CreateProjectRequest("Trip", "Ski trip", null, null, null, null);
     ProjectResponse result = projectService.createProject(request, userId);
 
     assertThat(result).isNotNull();
@@ -183,7 +184,9 @@ class ProjectServiceTest {
         .willReturn(dummyProjectResponse());
 
     projectService.createProject(
-        new CreateProjectRequest("London", null, "gbp", new java.math.BigDecimal("4.85"), null, null), userId);
+        new CreateProjectRequest(
+            "London", null, "gbp", new java.math.BigDecimal("4.85"), null, null),
+        userId);
 
     verify(projectRepository).save(projectCaptor.capture());
     // Normalized on the way in, so an expense inheriting it matches on currency code.
@@ -242,7 +245,8 @@ class ProjectServiceTest {
     assertThatThrownBy(
             () ->
                 projectService.createProject(
-                    new CreateProjectRequest("Mars", null, "XYZ", java.math.BigDecimal.ONE, null, null),
+                    new CreateProjectRequest(
+                        "Mars", null, "XYZ", java.math.BigDecimal.ONE, null, null),
                     userId))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("Unsupported currency");

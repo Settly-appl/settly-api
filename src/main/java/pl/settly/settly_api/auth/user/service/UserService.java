@@ -5,14 +5,14 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pl.settly.settly_api.auth.user.dto.ProviderUserInfo;
+import pl.settly.settly_api.auth.user.dto.UpdateUserSettingsRequest;
 import pl.settly.settly_api.auth.user.dto.UserMapper;
 import pl.settly.settly_api.auth.user.dto.UserSearchResponse;
+import pl.settly.settly_api.auth.user.dto.UserSettingsResponse;
 import pl.settly.settly_api.auth.user.model.User;
 import pl.settly.settly_api.auth.user.model.UserIdentityProvider;
 import pl.settly.settly_api.auth.user.repository.UserIdentityProviderRepository;
 import pl.settly.settly_api.auth.user.repository.UserRepository;
-import pl.settly.settly_api.auth.user.dto.UpdateUserSettingsRequest;
-import pl.settly.settly_api.auth.user.dto.UserSettingsResponse;
 import pl.settly.settly_api.common.exception.ResourceNotFoundException;
 import pl.settly.settly_api.common.money.CurrencyConversionService;
 

@@ -42,9 +42,14 @@ services:
       KC_HTTP_ENABLED: "true"
       KC_PROXY_HEADERS: xforwarded
       KC_HEALTH_ENABLED: "true"
+      # Theme CSS/images are served under a path that does not change between
+      # restarts, with a 30-day cache by default — a restyle would not reach
+      # browsers for a month. An hour is plenty for a login page.
+      KC_SPI_THEME__STATIC_MAX_AGE: "3600"
       KEYCLOAK_ADMIN_CLIENT_SECRET: ${KEYCLOAK_ADMIN_CLIENT_SECRET}
     volumes:
       - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json
+      - ./keycloak/themes/settly:/opt/keycloak/themes/settly:ro
     depends_on:
       postgres:
         condition: service_healthy

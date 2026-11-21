@@ -115,9 +115,14 @@ jobs:
         run: |
           set -e
           mkdir -p "${{ env.DEPLOY_PATH }}"
+          # Keycloak in `start` mode caches themes in memory: a changed login
+          # theme only shows after a restart, so note whether it changed.
+          theme_hash() { (cd "$1" 2>/dev/null && find keycloak/themes -type f -exec sha256sum {} + 2>/dev/null | sort | sha256sum) || true; }
+          THEME_BEFORE=$(theme_hash "${{ env.DEPLOY_PATH }}")
           cp -r docker-compose.prod.yml postgres keycloak caddy "${{ env.DEPLOY_PATH }}/"
+          THEME_AFTER=$(theme_hash "${{ env.DEPLOY_PATH }}")
           cd "${{ env.DEPLOY_PATH }}"
-          chmod +x postgres/init.sh || true
+          chmod +x postgres/init.sh keycloak/apply-realm-settings.sh || true
 
           # Persist the pinned SHA image to .env so the deployed version is
           # durable: a later `docker compose up -d` (manual, on reboot, or from
@@ -135,6 +140,15 @@ jobs:
           export SETTLY_API_IMAGE="${IMAGE}"
           docker compose -f docker-compose.prod.yml pull
           docker compose -f docker-compose.prod.yml up -d
+          if [ "$THEME_BEFORE" != "$THEME_AFTER" ]; then
+            echo "Login theme changed, restarting Keycloak"
+            docker compose -f docker-compose.prod.yml restart keycloak
+          fi
+          # --import-realm skips the existing realm, so realm-export.json
+          # changes (login theme, locales) are pushed through the Admin API.
+          # A failure here leaves the old login look, not a broken deploy.
+          ./keycloak/apply-realm-settings.sh docker-compose.prod.yml \
+            || echo "::warning::Could not apply Keycloak realm settings (login theme); see keycloak/apply-realm-settings.sh"
           docker compose -f docker-compose.prod.yml exec -T caddy \
             caddy reload --config /etc/caddy/Caddyfile || true
           docker image prune -f

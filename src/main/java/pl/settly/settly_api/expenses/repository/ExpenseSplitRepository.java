@@ -39,8 +39,8 @@ public interface ExpenseSplitRepository extends JpaRepository<ExpenseSplit, UUID
    *
    * <p>The owner's own row is excluded — nobody owes it. Shares already declared paid are still
    * returned but counted separately: a declaration is not a payment, so it must not move the
-   * balance, while nagging someone who is waiting for the owner to confirm is exactly the noise
-   * the declaration was meant to stop.
+   * balance, while nagging someone who is waiting for the owner to confirm is exactly the noise the
+   * declaration was meant to stop.
    *
    * <p>Sums {@code baseAmount}, not {@code amount}: the latter would add pounds to zloty and remind
    * people of a number that is not any amount of money.

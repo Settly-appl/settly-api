@@ -91,8 +91,7 @@ public class SettlementReminderJob {
         continue;
       }
 
-      PairDebtSummary back =
-          byPair.get(List.of(pair.getCreditorId(), pair.getDebtorId()));
+      PairDebtSummary back = byPair.get(List.of(pair.getCreditorId(), pair.getDebtorId()));
       BigDecimal owedBack = back == null ? BigDecimal.ZERO : nullToZero(back.getTotal());
       BigDecimal net = nullToZero(pair.getTotal()).subtract(owedBack);
       if (net.compareTo(BigDecimal.ZERO) <= 0) {

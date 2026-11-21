@@ -155,16 +155,19 @@ class ExpensesServiceTest {
   void should_inherit_the_rate_from_the_project_when_the_expense_gives_none() {
     CreateExpenseRequest request =
         new CreateExpenseRequest(
-            "Tube", null, null, null, "transport", new BigDecimal("2.80"), LocalDate.now(),
+            "Tube",
+            null,
+            null,
+            null,
+            "transport",
+            new BigDecimal("2.80"),
+            LocalDate.now(),
             projectId);
     User user = new User();
     user.setId(userId);
     Expense expense = new Expense();
     Project london =
-        Project.builder()
-            .defaultCurrency("GBP")
-            .defaultRateToBase(new BigDecimal("4.85"))
-            .build();
+        Project.builder().defaultCurrency("GBP").defaultRateToBase(new BigDecimal("4.85")).build();
 
     given(expenseMapper.toExpense(request)).willReturn(expense);
     given(userRepository.getReferenceById(userId)).willReturn(user);
@@ -202,8 +205,14 @@ class ExpensesServiceTest {
   void should_reject_a_currency_the_app_cannot_display() {
     CreateExpenseRequest request =
         new CreateExpenseRequest(
-            "Souk", null, "XYZ", new BigDecimal("2"), "shopping", new BigDecimal("5.00"),
-            LocalDate.now(), null);
+            "Souk",
+            null,
+            "XYZ",
+            new BigDecimal("2"),
+            "shopping",
+            new BigDecimal("5.00"),
+            LocalDate.now(),
+            null);
     User user = new User();
     user.setId(userId);
 

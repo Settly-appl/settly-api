@@ -99,7 +99,8 @@ class SuggestionControllerTest {
   void should_let_an_admin_read_every_suggestion() throws Exception {
     given(suggestionService.getAll())
         .willReturn(
-            List.of(new SuggestionResponse(UUID.randomUUID(), "add budgets", "Ala", Instant.now())));
+            List.of(
+                new SuggestionResponse(UUID.randomUUID(), "add budgets", "Ala", Instant.now())));
 
     mockMvc
         .perform(get("/suggestions").with(user(USER_ID).roles("admin")))
@@ -130,8 +131,6 @@ class SuggestionControllerTest {
   @Test
   void should_refuse_a_non_admin_reading_suggestions() throws Exception {
     // Hiding the button in the app is a courtesy; this is the actual control.
-    mockMvc
-        .perform(get("/suggestions").with(user(USER_ID)))
-        .andExpect(status().isForbidden());
+    mockMvc.perform(get("/suggestions").with(user(USER_ID))).andExpect(status().isForbidden());
   }
 }

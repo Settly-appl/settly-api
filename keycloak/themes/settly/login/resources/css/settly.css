@@ -1,0 +1,475 @@
+/*
+ * Settly login theme. Colours mirror settly-mobile lib/projectColors/app_colors.dart
+ * so the hand-off from the app to the browser and back does not change look.
+ */
+
+:root {
+  --s-scaffold: #F5F7FA;
+  --s-card: #FFFFFF;
+  --s-border: #E8EDF3;
+  --s-input-bg: #F8FAFC;
+  --s-text: #0D1B2A;
+  --s-text-2: #4A5568;
+  --s-muted: #6B7A8D;
+  --s-faint: #9BA8B7;
+  --s-accent: #1E6FD9;
+  --s-accent-soft: #E8F1FC;
+  --s-grad-a: #1569CC;
+  --s-grad-b: #00B386;
+  --s-danger: #E05252;
+  --s-danger-soft: #FDECEC;
+  --s-success: #00A87A;
+  --s-success-soft: #E0FAF4;
+  --s-warning: #B7791F;
+  --s-warning-soft: #FEF3E2;
+  --s-shadow: 0 1px 2px rgba(13, 27, 42, 0.04), 0 8px 24px rgba(13, 27, 42, 0.06);
+  --s-radius: 20px;
+  --s-radius-sm: 12px;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --s-scaffold: #0D1B2A;
+    --s-card: #1A2D45;
+    --s-border: #243D5A;
+    --s-input-bg: #132233;
+    --s-text: #F0F4F8;
+    --s-text-2: #C5D3E0;
+    --s-muted: #7A9AB5;
+    --s-faint: #4A6A85;
+    --s-accent: #60B8F5;
+    --s-accent-soft: #1A3A5C;
+    --s-danger: #F07878;
+    --s-danger-soft: #3A1E24;
+    --s-success: #00C896;
+    --s-success-soft: #0D3028;
+    --s-warning: #F59E0B;
+    --s-warning-soft: #2D2010;
+    --s-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+    color-scheme: dark;
+  }
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body { margin: 0; padding: 0; }
+
+body.settly-body {
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--s-scaffold);
+  color: var(--s-text);
+  font-family: Roboto, system-ui, -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* The summary-card gradient, as a soft wash behind the logo. */
+.settly-backdrop {
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: 320px;
+  background:
+    radial-gradient(120% 100% at 0% 0%, rgba(21, 105, 204, 0.16), transparent 60%),
+    radial-gradient(120% 100% at 100% 0%, rgba(0, 179, 134, 0.14), transparent 60%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.settly-page {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 440px;
+  margin: 0 auto;
+  padding: 40px 16px 32px;
+}
+
+/* ── Brand ─────────────────────────────────────────────────────────────── */
+
+.settly-brand { text-align: center; margin-bottom: 24px; }
+
+.settly-brand__logo {
+  display: block;
+  width: 96px;
+  height: 96px;
+  margin: 0 auto;
+  border-radius: 24px;
+  background: #FFFFFF;
+  box-shadow: var(--s-shadow);
+  object-fit: cover;
+}
+
+.settly-brand__tagline {
+  margin: 14px 0 0;
+  color: var(--s-muted);
+  font-size: 15px;
+}
+
+/* ── Card ──────────────────────────────────────────────────────────────── */
+
+.settly-card {
+  display: block;
+  background: var(--s-card);
+  border: 1px solid var(--s-border);
+  border-radius: var(--s-radius);
+  box-shadow: var(--s-shadow);
+  padding: 28px 24px 24px;
+}
+
+.settly-card__header { position: relative; margin-bottom: 20px; }
+
+#kc-page-title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--s-text);
+}
+
+.settly-required-note { margin: 6px 0 0; font-size: 13px; color: var(--s-muted); }
+.required { color: var(--s-danger); }
+
+.settly-username {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--s-input-bg);
+  border: 1px solid var(--s-border);
+  border-radius: var(--s-radius-sm);
+}
+.settly-username__value { font-weight: 600; overflow-wrap: anywhere; }
+.settly-username__reset { color: var(--s-accent); font-weight: 600; text-decoration: none; white-space: nowrap; }
+
+/* ── Locale ────────────────────────────────────────────────────────────── */
+
+.settly-locale { position: absolute; top: -6px; right: 0; }
+[dir="rtl"] .settly-locale { right: auto; left: 0; }
+.settly-locale__dropdown { position: relative; }
+.settly-locale__dropdown > button {
+  font: inherit;
+  font-size: 13px;
+  color: var(--s-muted);
+  background: transparent;
+  border: 1px solid var(--s-border);
+  border-radius: 999px;
+  padding: 4px 12px;
+  cursor: pointer;
+}
+.settly-locale__menu {
+  display: none;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  min-width: 140px;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  background: var(--s-card);
+  border: 1px solid var(--s-border);
+  border-radius: var(--s-radius-sm);
+  box-shadow: var(--s-shadow);
+  z-index: 5;
+}
+.settly-locale__dropdown > button[aria-expanded="true"] + .settly-locale__menu,
+.settly-locale__dropdown:focus-within .settly-locale__menu { display: block; }
+.settly-locale__link {
+  display: block;
+  padding: 8px 10px;
+  border-radius: 8px;
+  color: var(--s-text);
+  text-decoration: none;
+}
+.settly-locale__link:hover, .settly-locale__link:focus { background: var(--s-accent-soft); }
+
+/* ── Alerts ────────────────────────────────────────────────────────────── */
+
+.settly-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 18px;
+  padding: 12px 14px;
+  border-radius: var(--s-radius-sm);
+  font-size: 14px;
+  background: var(--s-accent-soft);
+  color: var(--s-text);
+}
+.settly-alert__icon {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  margin-top: 7px;
+  border-radius: 50%;
+  background: var(--s-accent);
+}
+.settly-alert--error { background: var(--s-danger-soft); }
+.settly-alert--error .settly-alert__icon { background: var(--s-danger); }
+.settly-alert--success { background: var(--s-success-soft); }
+.settly-alert--success .settly-alert__icon { background: var(--s-success); }
+.settly-alert--warning { background: var(--s-warning-soft); }
+.settly-alert--warning .settly-alert__icon { background: var(--s-warning); }
+
+/* ── Form ──────────────────────────────────────────────────────────────── */
+
+.settly-form { margin: 0; }
+.settly-group { margin-bottom: 16px; }
+.settly-group:last-child { margin-bottom: 0; }
+
+.settly-label-wrap { color: var(--s-text-2); font-size: 13px; }
+.settly-label {
+  display: inline-block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--s-text-2);
+}
+
+.settly-input {
+  display: block;
+  width: 100%;
+  height: 48px;
+  padding: 0 14px;
+  font: inherit;
+  font-size: 16px; /* 16px keeps iOS Safari from zooming on focus */
+  color: var(--s-text);
+  background: var(--s-input-bg);
+  border: 1px solid var(--s-border);
+  border-radius: var(--s-radius-sm);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.settly-input::placeholder { color: var(--s-faint); }
+.settly-input:focus {
+  border-color: var(--s-accent);
+  background: var(--s-card);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--s-accent) 22%, transparent);
+}
+.settly-input[aria-invalid="true"] { border-color: var(--s-danger); }
+.settly-input:disabled, .settly-input[readonly] { opacity: 0.7; }
+.settly-textarea { height: auto; min-height: 96px; padding: 12px 14px; }
+select.settly-input {
+  padding-right: 36px;
+  background-image: linear-gradient(45deg, transparent 50%, var(--s-muted) 50%), linear-gradient(135deg, var(--s-muted) 50%, transparent 50%);
+  background-position: calc(100% - 18px) 21px, calc(100% - 13px) 21px;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+}
+
+.settly-input-group { position: relative; display: flex; }
+.settly-input-group .settly-input { padding-right: 48px; }
+.settly-eye {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: var(--s-radius-sm);
+  color: var(--s-muted);
+  cursor: pointer;
+}
+.settly-eye:hover { color: var(--s-accent); }
+.settly-eye:focus-visible { outline: 2px solid var(--s-accent); outline-offset: -4px; }
+
+.settly-icon {
+  display: block;
+  width: 20px;
+  height: 20px;
+  background: currentColor;
+  -webkit-mask: var(--icon) center / contain no-repeat;
+  mask: var(--icon) center / contain no-repeat;
+}
+.settly-icon--eye {
+  --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z'/%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3C/svg%3E");
+}
+.settly-icon--eye-off {
+  --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M17.94 17.94A10.07 10.07 0 0 1 12 19c-6.5 0-10-7-10-7a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c6.5 0 10 7 10 7a18.5 18.5 0 0 1-2.16 3.19M14.12 14.12a3 3 0 1 1-4.24-4.24'/%3E%3Cpath d='M1 1l22 22'/%3E%3C/svg%3E");
+}
+
+.settly-field-error {
+  display: block;
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--s-danger);
+}
+.settly-help { margin: 6px 0; font-size: 13px; color: var(--s-muted); }
+
+.settly-options-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 14px;
+}
+.settly-options, .settly-options__wrap { font-size: 14px; }
+
+/* Base pages (register, reset password, update profile, …) put a "back to
+   sign in" link and the submit button in one group. Stack them: the button
+   full width, the link centred underneath, as on the login page. */
+.settly-group:has(> #kc-form-options) {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 16px;
+  margin-top: 20px;
+}
+.settly-group > #kc-form-options { order: 2; text-align: center; }
+.settly-group > #kc-form-buttons { order: 1; margin-top: 0; }
+.settly-check-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--s-text-2);
+  cursor: pointer;
+}
+.settly-check, input[type="checkbox"], input[type="radio"] {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--s-accent);
+}
+.settly-check-label { color: var(--s-text-2); }
+
+a, .settly-link { color: var(--s-accent); font-weight: 600; text-decoration: none; }
+a:hover, .settly-link:hover { text-decoration: underline; }
+a:focus-visible { outline: 2px solid var(--s-accent); outline-offset: 2px; border-radius: 4px; }
+
+/* ── Buttons ───────────────────────────────────────────────────────────── */
+
+.settly-buttons { margin-top: 20px; }
+
+.settly-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 18px;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  text-decoration: none;
+  border: 1px solid transparent;
+  border-radius: var(--s-radius-sm);
+  cursor: pointer;
+  transition: transform 0.06s, filter 0.15s, background 0.15s, border-color 0.15s;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.settly-btn:hover { text-decoration: none; }
+.settly-btn:active { transform: scale(0.99); }
+.settly-btn:focus-visible { outline: 2px solid var(--s-accent); outline-offset: 2px; }
+.settly-btn--block { display: flex; width: 100%; }
+.settly-btn--large { min-height: 52px; font-size: 16px; }
+
+.settly-btn--primary {
+  color: #FFFFFF;
+  background: linear-gradient(90deg, var(--s-grad-a), var(--s-grad-b));
+  box-shadow: 0 6px 16px rgba(21, 105, 204, 0.22);
+}
+.settly-btn--primary:hover { filter: brightness(1.06); }
+.settly-btn--primary:disabled { filter: grayscale(0.3) opacity(0.7); cursor: default; }
+
+.settly-btn--secondary {
+  color: var(--s-text);
+  background: var(--s-card);
+  border-color: var(--s-border);
+}
+.settly-btn--secondary:hover { background: var(--s-input-bg); }
+.settly-btn--disabled { opacity: 0.6; pointer-events: none; }
+
+/* Several base pages put two buttons side by side (e.g. "Accept"/"Decline"). */
+.settly-buttons__wrap, #kc-form-buttons { display: flex; flex-direction: column; gap: 10px; }
+#kc-form-buttons > .settly-btn + .settly-btn { margin-left: 0; }
+
+/* ── Social ────────────────────────────────────────────────────────────── */
+
+.settly-social__list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.settly-social__list--grid { grid-template-columns: 1fr 1fr; }
+.settly-social__btn { min-height: 52px; font-size: 16px; }
+.settly-social__logo { width: 20px; height: 20px; flex: none; }
+
+/* base/login.ftl leftovers on other pages (we render our own on login.ftl) */
+.settly-social > hr { display: none; }
+.settly-social > h2 { margin: 20px 0 12px; font-size: 13px; font-weight: 600; color: var(--s-muted); text-align: center; }
+
+.settly-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 20px 0;
+  color: var(--s-faint);
+  font-size: 13px;
+}
+.settly-divider::before, .settly-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--s-border);
+}
+
+/* ── Footer link under the form ("No account? Sign up") ─────────────────── */
+
+.settly-signup {
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid var(--s-border);
+  text-align: center;
+  color: var(--s-muted);
+  font-size: 14px;
+}
+
+.settly-center { text-align: center; }
+.settly-mt { margin-top: 16px; }
+
+/* Plain text pages (info, error, verify-email, page-expired) */
+#kc-content-wrapper p { margin: 0 0 12px; color: var(--s-text-2); }
+#kc-content-wrapper p:last-child { margin-bottom: 0; }
+.instruction { color: var(--s-text-2); }
+#kc-info-message p a, #kc-content-wrapper > p > a { font-weight: 600; }
+
+/* Authenticator selection / OTP choice */
+.settly-select-list { display: grid; gap: 10px; }
+.settly-select-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--s-border);
+  border-radius: var(--s-radius-sm);
+  color: var(--s-text);
+  text-decoration: none;
+}
+.settly-select-item:hover { background: var(--s-input-bg); text-decoration: none; }
+.settly-select-item__title { font-weight: 600; }
+.settly-select-item__desc { color: var(--s-muted); font-size: 13px; }
+.settly-otp-list { display: grid; gap: 8px; }
+
+@media (min-width: 480px) {
+  .settly-page { padding-top: 64px; }
+  .settly-card { padding: 32px 32px 28px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}
