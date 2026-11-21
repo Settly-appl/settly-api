@@ -37,6 +37,8 @@ services:
       KEYCLOAK_ADMIN_CLIENT_SECRET: ${KEYCLOAK_ADMIN_CLIENT_SECRET}
     volumes:
       - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json
+      # start-dev disables theme caching: edits under keycloak/themes show on reload.
+      - ./keycloak/themes/settly:/opt/keycloak/themes/settly:ro
     ports:
       - "127.0.0.1:9090:8080"
     depends_on:

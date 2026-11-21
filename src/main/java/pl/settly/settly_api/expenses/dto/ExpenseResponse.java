@@ -28,9 +28,9 @@ import java.util.UUID;
  * </ul>
  *
  * <p>Money comes in two denominations: {@code totalAmount}/{@code currency} is what was actually
- * spent, {@code baseAmount}/{@code baseCurrency} the same sum converted at {@code rateToBase} —
- * the rate the payer got when they bought the currency. They are equal, and the rate 1, for an
- * expense already in the base currency.
+ * spent, {@code baseAmount}/{@code baseCurrency} the same sum converted at {@code rateToBase} — the
+ * rate the payer got when they bought the currency. They are equal, and the rate 1, for an expense
+ * already in the base currency.
  */
 public record ExpenseResponse(
     UUID id,

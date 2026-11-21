@@ -138,8 +138,7 @@ public class ProjectService {
             project, projectMemberRepository.countByProjectId(projectId));
 
     List<ProjectExpenseTotals> totals = expenseRepository.sumByProject(List.of(projectId));
-    return withTotals(
-        response, totals.isEmpty() ? null : totals.get(0), baseCurrencyOf(userId));
+    return withTotals(response, totals.isEmpty() ? null : totals.get(0), baseCurrencyOf(userId));
   }
 
   @Transactional
