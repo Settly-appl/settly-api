@@ -81,8 +81,17 @@ public class ExpenseSplitService {
             .findByIdAndUser_Id(expenseId, userId)
             .orElseThrow(() -> new ResourceNotFoundException("Expense does not exist"));
 
-    if (expenseSplitRepository.existsByExpenseId(expenseId)) {
-      throw new IllegalArgumentException("Expense is already split");
+    List<ExpenseSplit> existingSplits = expenseSplitRepository.findByExpenseId(expenseId);
+    Set<UUID> historicalParticipantIds =
+        existingSplits.stream()
+            .map(split -> split.getUser().getId())
+            .filter(existingUserId -> !existingUserId.equals(userId))
+            .collect(Collectors.toSet());
+
+    if (!existingSplits.isEmpty()) {
+      expenseItemSplitRepository.deleteAll(
+          expenseItemSplitRepository.findByExpenseItemExpenseId(expenseId));
+      expenseSplitRepository.deleteAll(existingSplits);
     }
 
     createExpenseSplitRequest
@@ -280,6 +289,26 @@ public class ExpenseSplitService {
     }
 
     applyBaseAmounts(expense, expenseSplits, userId);
+
+    Set<UUID> currentParticipantIds =
+        expenseSplits.stream()
+            .map(split -> split.getUser().getId())
+            .filter(currentUserId -> !currentUserId.equals(userId))
+            .collect(Collectors.toSet());
+
+    historicalParticipantIds.stream()
+        .filter(historicalUserId -> !currentParticipantIds.contains(historicalUserId))
+        .forEach(
+            historicalUserId ->
+                expenseSplits.add(
+                    ExpenseSplit.builder()
+                        .expense(expense)
+                        .user(userRepository.getReferenceById(historicalUserId))
+                        .expenseSplitType(createExpenseSplitRequest.expenseSplitType())
+                        .amount(BigDecimal.ZERO)
+                        .settled(true)
+                        .settledAt(Instant.now())
+                        .build()));
 
     List<ExpenseSplit> savedSplits = expenseSplitRepository.saveAll(expenseSplits);
 
